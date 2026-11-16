@@ -1,4 +1,4 @@
-import { Database, LayoutDashboard, Package, Users, Building2, Layers, type LucideIcon, Store, Tags, Truck } from 'lucide-react';
+import { ArrowLeftRight, Database, LayoutDashboard, Package, Users, Building2, Layers, type LucideIcon, Store, Tags, Truck, Wrench } from 'lucide-react';
 
 // ===== tipe data menu =====
 
@@ -22,6 +22,16 @@ export interface NavItem {
 // ===== daftar menu (satu-satunya tempat untuk menambah / mengubah menu) =====
 export const navItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/', section: 'menu' },
+
+  {
+    label: 'Transaksi',
+    icon: ArrowLeftRight,
+    section: 'menu',
+    matchPrefix: '/transaksi',
+    children: [
+      { label: 'Penanganan Inventory', path: '/transaksi/penanganan', icon: Wrench },
+    ],
+  },
 
   {
     label: 'Master Data',
