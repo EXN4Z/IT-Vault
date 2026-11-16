@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // /users/options harus di atas apiResource supaya tidak ditabrak route /users/{user}
     Route::get('/users/options', [UserController::class, 'options']);
     Route::apiResource('users', UserController::class)->except('show');
+    Route::post('/users/import', [UserController::class, 'import']);
 
     // CRUD perusahaan: index, store, update, destroy
     Route::apiResource('perusahaan', PerusahaanController::class)->except('show');
@@ -36,10 +37,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/inventory/{inventory}/link-candidates', [InventoryController::class, 'linkCandidates']);
     Route::post('/inventory/{inventory}/link', [InventoryController::class, 'link']);
     Route::delete('/inventory/{inventory}/link', [InventoryController::class, 'unlink']);
-    Route::get('/inventory/{inventory}/kelengkapan', [InventoryController::class, 'kelengkapan']);
-
-    // jual inventory (status dijual, hanya dari Rusak Berat; juga di atas apiResource)
-    Route::post('/inventory/{inventory}/jual', [InventoryController::class, 'jual']);
 
     // serah terima inventory ke karyawan (juga di atas apiResource)
     Route::get('/peminjaman/karyawan', [PeminjamanController::class, 'karyawan']);

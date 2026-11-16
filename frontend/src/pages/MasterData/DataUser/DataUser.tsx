@@ -7,10 +7,12 @@ import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
 import { btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
-import { userService } from '../../../services/userService';
+import { userService, type UserImportResult } from '../../../services/userService';
 import { getErrorMessage } from '../../../lib/errors';
 import type { UserRow } from '../../../types/user';
 import DataUserFormModal from './DataUserFormModal';
+import ImportModal from '../../../components/modal/ImportModal';
+
 
 const PER_PAGE = 10;
 
@@ -36,6 +38,13 @@ export default function UsersPage() {
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0); // naikkan untuk memuat ulang tabel
 
+  // import
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importDetails, setImportDetails] = useState<string[]>([]);
+  const [importResult, setImportResult] = useState<UserImportResult | null>(null);
+
   // modal tambah / ubah (`editing` sengaja tidak di-null-kan saat tutup supaya isi modal tidak berubah selama animasi)
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
@@ -57,6 +66,32 @@ export default function UsersPage() {
       return next;
     }, { replace: true });
     setPage(1);
+  };
+
+  const openImport = () => {
+    setImportError('');
+    setImportDetails([]);
+    setImportOpen(true);
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    setImportError('');
+    setImportDetails([]);
+    try {
+      const res = await userService.import(file);
+      setImportOpen(false);
+      setImportResult(res); // ringkasan tampil di halaman
+      setPage(1);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setImportError(getErrorMessage(err));
+      // 422 dari controller membawa daftar alasan (array string)
+      const errors = (err as { response?: { data?: { errors?: unknown } } }).response?.data?.errors;
+      setImportDetails(Array.isArray(errors) ? errors.map(String) : []);
+    } finally {
+      setImporting(false);
+    }
   };
 
   // tunda pencarian 300ms setelah berhenti mengetik
@@ -165,7 +200,7 @@ export default function UsersPage() {
         <p className="text-xs text-ink-soft">Kelola data user dan karyawan sistem, akun login, departemen, dan hak akses.</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={outline}><Download size={14} />Export Excel</button>
-          <button type="button" className={outline}><Upload size={14} />Import Excel</button>
+          <button type="button" className={outline} onClick={openImport}><Upload size={14} />Import Excel</button>
           <button
             type="button"
             onClick={openCreate}
@@ -177,6 +212,29 @@ export default function UsersPage() {
       </div>
 
       <div className="space-y-3">
+        {importResult && (
+          <div className="rounded-lg bg-selected px-3 py-2 text-xs">
+            <div className="flex items-start justify-between gap-3">
+              <p>
+                Import selesai:{' '}
+                <span className="font-semibold">{importResult.ditambahkan}</span> user ditambahkan,{' '}
+                {importResult.diperbarui} diperbarui
+                {importResult.jumlah_error > 0 && `, ${importResult.jumlah_error} baris gagal`}.
+              </p>
+              <button
+                type="button"
+                aria-label="Tutup"
+                className="cursor-pointer text-ink-muted hover:text-ink"
+                onClick={() => setImportResult(null)}
+              >×</button>
+            </div>
+            {importResult.errors.length > 0 && (
+              <ul className="mt-1.5 max-h-32 list-disc space-y-0.5 overflow-y-auto pl-4 text-ink-soft">
+                {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
         <SegmentedTabs tabs={TABS} value={tab} onChange={changeTab} />
         <SearchField
           value={query}
@@ -210,6 +268,18 @@ export default function UsersPage() {
         user={editing}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
+      />
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import user"
+        description="Unggah file Excel/CSV data user. User yang NIK atau emailnya sudah ada akan diperbarui."
+        requiredColumns={['Nama', 'Email']}
+        onSubmit={handleImport}
+        loading={importing}
+        error={importError}
+        details={importDetails}
       />
 
       <Modal

@@ -13,6 +13,7 @@ return new class extends Migration
             $table->date('tanggal_pengembalian')->nullable()->after('tanggal_penerimaan');
             $table->string('kondisi_kembali')->nullable()->after('tanggal_pengembalian'); // status barang utama setelah kembali
             $table->text('catatan_kembali')->nullable()->after('kondisi_kembali');
+            $table->string('nomor_pengembalian')->unique()->after('tanggal_pengembalian');
             $table->foreignId('dikembalikan_oleh')->nullable()->after('created_by')
                 ->constrained('users')->nullOnDelete(); // admin yang memproses pengembalian
         });
