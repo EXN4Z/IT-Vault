@@ -1,7 +1,16 @@
 import { api } from '../lib/api';
 import type { InventoryLinkCandidate, InventoryOptions, InventoryPayload, InventoryRow } from '../types/inventory';
 import type { Paginated } from '../types/user';
+import type { ExportOptions } from '../components/modal/ExportModal';
 
+export interface InventoryImportResult {
+  message: string;
+  ditambahkan: number;
+  dipulihkan: number;
+  dilewati: number;
+  jumlah_error: number;
+  errors: string[];
+}
 export const inventoryService = {
   // GET /inventory?status=tersedia&search=...
   async list(page: number, perPage: number, status?: string, search?: string): Promise<Paginated<InventoryRow>> {
@@ -53,4 +62,34 @@ export const inventoryService = {
   async remove(id: number): Promise<void> {
     await api.delete(`/inventory/${id}`);
   },
+  
+  async import(file: File): Promise<InventoryImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post<InventoryImportResult>('/inventory/import', formData, {
+      timeout: 0, // file besar diproses per baris di server, jangan putus di tengah
+    });
+    return data;
+  },
+
+  // GET /inventory/export -> file (blob)
+  async export(
+    opts: ExportOptions & { page: number; perPage: number; status?: string; search?: string },
+  ): Promise<Blob> {
+    const { data } = await api.post<Blob>('/inventory/export', {
+      params: {
+        format: opts.format,
+        scope: opts.scope,
+        columns: opts.columns, // dikirim sebagai columns[]=a&columns[]=b
+        status: opts.status,
+        search: opts.search || undefined,
+        page: opts.page,
+        per_page: opts.perPage,
+      },
+      responseType: 'blob',
+      timeout: 0,
+    });
+    return data;
+  },
 };
+

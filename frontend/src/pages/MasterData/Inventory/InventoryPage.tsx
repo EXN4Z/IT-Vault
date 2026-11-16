@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  BadgeDollarSign, Boxes, CircleCheck, Clock, Eye, HandHelping, Link2, Loader2, OctagonAlert, Pencil, Plus, Printer, RotateCcw, Trash2, Unlink, UserCheck, Wrench,
+  BadgeDollarSign, Boxes, CircleCheck, Clock, Eye, HandHelping, Link2, Loader2, OctagonAlert, Pencil, Plus, Printer, RotateCcw, Trash2, Unlink, UserCheck, Wrench, Upload, Download
 } from 'lucide-react';
 import DataTable, { type Column } from '../../../components/ui/DataTable';
 import Badge from '../../../components/ui/Badge';
@@ -9,7 +9,7 @@ import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
 import { btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
-import { inventoryService } from '../../../services/inventoryService';
+import { inventoryService, type InventoryImportResult  } from '../../../services/inventoryService';
 import { peminjamanService } from '../../../services/peminjamanService';
 import { getErrorMessage } from '../../../lib/errors';
 import { openReceiptWindow, writeReceipt } from '../../../lib/receipt';
@@ -20,6 +20,9 @@ import InventoryHandoverModal from './InventoryHandOverModal';
 import InventoryLinkModal from './InventoryLinkModal';
 import InventoryReturnModal from './InventoryReturnModal';
 import PenangananLaporModal from './PenangananLaporModal';
+import { blobErrorMessage, downloadBlob } from '../../../lib/downloadExport';
+import ImportModal from '../../../components/modal/ImportModal';
+import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
 
 const PER_PAGE = 10;
 
@@ -33,6 +36,24 @@ const TABS = [
   { key: 'rusak_berat', label: 'Rusak Berat', icon: OctagonAlert },
   { key: 'dijual', label: 'Dijual', icon: BadgeDollarSign },
 ] as const;
+
+const EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'kode_inventory', label: 'Kode Inventory' },
+  { key: 'kategori', label: 'Kategori' },
+  { key: 'merk', label: 'Merk' },
+  { key: 'type', label: 'Type' },
+  { key: 'warna', label: 'Warna' },
+  { key: 'nama', label: 'Nama' },
+  { key: 'serial_number', label: 'Serial Number' },
+  { key: 'keterangan', label: 'Keterangan' },
+  { key: 'jumlah', label: 'Jumlah' },
+  { key: 'status', label: 'Status' },
+  { key: 'pemakai_saat_ini', label: 'Pemakai Saat Ini' },
+  { key: 'supplier', label: 'Supplier' },
+  { key: 'tanggal_pembelian', label: 'Tanggal Pembelian' },
+  { key: 'tanggal_input', label: 'Tanggal Input' },
+  { key: 'perusahaan', label: 'Perusahaan' },
+];
 
 type TabKey = (typeof TABS)[number]['key'];
 
@@ -49,6 +70,18 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0); // naikkan untuk memuat ulang tabel
+
+  //import
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importDetails, setImportDetails] = useState<string[]>([]);
+  const [importResult, setImportResult] = useState<InventoryImportResult | null>(null);
+
+  //export
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   // modal tambah / ubah (`editing` sengaja tidak di-null-kan saat tutup supaya isi modal tidak berubah selama animasi)
   const [formOpen, setFormOpen] = useState(false);
@@ -95,6 +128,56 @@ export default function InventoryPage() {
     setPage(1);
   };
 
+  const openImport = () => {
+  setImportError('');
+  setImportDetails([]);
+  setImportOpen(true);
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    setImportError('');
+    setImportDetails([]);
+    try {
+      const res = await inventoryService.import(file);
+      setImportOpen(false);
+      setImportResult(res); // ringkasan tampil di halaman
+      setPage(1);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setImportError(getErrorMessage(err));
+      // 422 dari controller membawa daftar alasan (array string)
+      const errors = (err as { response?: { data?: { errors?: unknown } } }).response?.data?.errors;
+      setImportDetails(Array.isArray(errors) ? errors.map(String) : []);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const openExport = () => {
+    setExportError('');
+    setExportOpen(true);
+  };
+
+  const handleExport = async (opts: ExportOptions) => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const blob = await inventoryService.export({
+        ...opts,
+        page,
+        perPage: PER_PAGE,
+        status: tab === 'semua' ? undefined : tab,
+        search,
+      });
+      downloadBlob(blob, `inventory-${new Date().toISOString().slice(0, 10)}.${opts.format}`);
+      setExportOpen(false);
+    } catch (err) {
+      setExportError(await blobErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  };
   // tunda pencarian 300ms setelah berhenti mengetik
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -309,12 +392,44 @@ export default function InventoryPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-soft">Kelola data inventory perangkat IT dan statusnya.</p>
-        <button type="button" className={btnSolid} onClick={openCreate}>
-          <Plus size={14} />Tambah Inventory
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" className={btnOutline} onClick={openImport}>
+            <Upload size={14} />Import
+          </button>
+          <button type="button" className={btnOutline} onClick={openExport}>
+            <Download size={14} />Export
+          </button>
+          <button type="button" className={btnSolid} onClick={openCreate}>
+            <Plus size={14} />Tambah Inventory
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">
+        {importResult && (
+          <div className="rounded-lg bg-selected px-3 py-2 text-xs">
+            <div className="flex items-start justify-between gap-3">
+              <p>
+                Import selesai:{' '}
+                <span className="font-semibold">{importResult.ditambahkan}</span> ditambahkan,{' '}
+                {importResult.dipulihkan} dipulihkan, {importResult.dilewati} dilewati
+                {importResult.jumlah_error > 0 && `, ${importResult.jumlah_error} catatan`}.
+              </p>
+              <button
+                type="button"
+                aria-label="Tutup"
+                className="cursor-pointer text-ink-muted hover:text-ink"
+                onClick={() => setImportResult(null)}
+              >×</button>
+            </div>
+            {importResult.errors.length > 0 && (
+              <ul className="mt-1.5 max-h-32 list-disc space-y-0.5 overflow-y-auto pl-4 text-ink-soft">
+                {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+
         {printError && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{printError}</p>}
         <SegmentedTabs tabs={TABS} value={tab} onChange={changeTab} />
         <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, merk, type, atau serial number..." />
@@ -384,6 +499,29 @@ export default function InventoryPage() {
         inventory={reportTarget}
         onClose={() => setReportOpen(false)}
         onSaved={() => setReloadKey((k) => k + 1)}
+      />
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import inventory"
+        description="Unggah file Excel/CSV data inventory."
+        requiredColumns={['Kode Inventory', 'Nama']}
+        onSubmit={handleImport}
+        loading={importing}
+        error={importError}
+        details={importDetails}
+      />
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title="Export inventory"
+        columns={EXPORT_COLUMNS}
+        total={total}
+        onSubmit={handleExport}
+        loading={exporting}
+        error={exportError}
       />
 
       <Modal

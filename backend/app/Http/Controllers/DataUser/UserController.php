@@ -12,6 +12,8 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use App\Imports\UserImport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class UserController extends Controller
 {
@@ -92,5 +94,40 @@ class UserController extends Controller
         $user->delete();
 
         return response()->noContent();
+    }
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:5120'], // 5 MB, sama dengan ImportModal
+        ]);
+
+        $import = new UserImport();
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'Import gagal: ' . $e->getMessage()], 500);
+        }
+
+        $ditambahkan = $import->getRowCount();
+        $diperbarui  = $import->getJumlahDiperbarui();
+        $errors      = $import->getErrors();
+
+        if ($ditambahkan === 0 && $diperbarui === 0) {
+            return response()->json([
+                'message' => 'Tidak ada data user yang diimport.',
+                'errors'  => $errors,
+            ], 422);
+        }
+
+        return response()->json([
+            'message'      => 'Import selesai.',
+            'ditambahkan'  => $ditambahkan,
+            'diperbarui'   => $diperbarui,
+            'jumlah_error' => count($errors),
+            'errors'       => $errors,
+        ]);
     }
 }

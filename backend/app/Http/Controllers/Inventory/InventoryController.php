@@ -12,6 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
+use App\Imports\InventoryBuktiImport;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Excel as ExcelWriter;
+use App\Exports\InventoryExport;
 
 class InventoryController extends Controller
 {
@@ -146,5 +150,65 @@ class InventoryController extends Controller
         $inventory->delete();
 
         return response()->noContent();
+    }
+
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'], // maks 10 MB
+        ]);
+
+        $import = new InventoryBuktiImport();
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Import gagal: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        $ditambahkan = $import->getRowCount();
+        $dipulihkan  = $import->getJumlahDipulihkan();
+        $dilewati    = $import->getJumlahDilewati();
+        $errors      = $import->getErrors();
+
+        // Tidak ada satu baris pun yang masuk (mis. header tidak ketemu)
+        if ($ditambahkan === 0 && $dipulihkan === 0 && $dilewati === 0 && !empty($errors)) {
+            return response()->json([
+                'message' => 'Tidak ada data yang diimport.',
+                'errors'  => $errors,
+            ], 422);
+        }
+
+        return response()->json([
+            'message'     => 'Import selesai.',
+            'ditambahkan' => $ditambahkan,
+            'dipulihkan'  => $dipulihkan,
+            'dilewati'    => $dilewati,
+            'jumlah_error' => count($errors),
+            'errors'      => $errors,
+        ]);
+    }
+
+    public function export(Request $request)
+    {
+        $data = $request->validate([
+            'format'    => ['required', 'in:xlsx,csv'],
+            'scope'     => ['required', 'in:all,filtered,page'],
+            'columns'   => ['nullable', 'array'],
+            'columns.*' => ['string'],
+            'status'    => ['nullable', 'string'],
+            'search'    => ['nullable', 'string'],
+            'page'      => ['nullable', 'integer', 'min:1'],
+            'per_page'  => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $nama   = 'inventory-' . now()->format('Ymd-His') . '.' . $data['format'];
+        $writer = $data['format'] === 'csv' ? ExcelWriter::CSV : ExcelWriter::XLSX;
+
+        return Excel::download(new InventoryExport($data), $nama, $writer);
     }
 }

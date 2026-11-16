@@ -14,7 +14,7 @@ class Peminjaman extends Model
 
     protected $fillable = [
         'inventory_id', 'user_id', 'nomor_penerimaan', 'tanggal_penerimaan',
-        'catatan', 'foto', 'created_by',
+        'catatan', 'foto', 'created_by', 'nomor_pengembalian',
         'tanggal_pengembalian', 'waktu_pengembalian', 'kondisi_kembali', 'catatan_kembali', 'dikembalikan_oleh',
     ];
 

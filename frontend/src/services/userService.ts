@@ -1,5 +1,13 @@
 import { api } from '../lib/api';
 import type { Paginated, UserOptions, UserPayload, UserRow } from '../types/user';
+export interface UserImportResult {
+  message: string;
+  ditambahkan: number;
+  diperbarui: number;
+  jumlah_error: number;
+  errors: string[];
+}
+
 
 export const userService = {
   // GET /users?role=user|admin&search=...
@@ -31,5 +39,12 @@ export const userService = {
   // DELETE /users/{id}
   async remove(id: number): Promise<void> {
     await api.delete(`/users/${id}`);
+  },
+
+  async import(file: File): Promise<UserImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post<UserImportResult>('/users/import', formData, { timeout: 0 });
+    return data;
   },
 };
