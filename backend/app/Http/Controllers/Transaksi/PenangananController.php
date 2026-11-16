@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Transaksi;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transaksi\LaporKerusakanRequest;
+use App\Http\Requests\Transaksi\TerimaPenangananRequest;
 use App\Models\Inventory;
 use App\Models\Peminjaman;
 use App\Models\Penanganan;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +18,46 @@ use Throwable;
 
 class PenangananController extends Controller
 {
+    // GET /penanganan?status=menunggu|diproses|berhasil|rusak_berat&jenis=&search=&page=&per_page=
+    // daftar untuk halaman Penanganan Inventory. Tab -> filter:
+    //   menunggu = dilaporkan, diproses = diterima, berhasil = selesai + hasil berhasil, rusak_berat = selesai + tidak_bisa_diperbaiki
+    public function index(Request $request): JsonResponse
+    {
+        $perPage = min($request->integer('per_page', 10), 100);
+        $search = $request->string('search')->trim()->lower()->toString();
+        $tab = $request->string('status')->toString();
+        $jenis = $request->string('jenis')->toString();
+
+        $paginator = Penanganan::with(['inventory:id,kode_inventory,nama,merk,type,serial_number,warna', 'pelapor:id,name', 'penerima:id,name'])
+            ->when($tab === 'menunggu', fn ($q) => $q->where('status', 'dilaporkan'))
+            ->when($tab === 'diproses', fn ($q) => $q->where('status', 'diterima'))
+            ->when($tab === 'berhasil', fn ($q) => $q->where('status', 'selesai')->where('hasil', 'berhasil'))
+            ->when($tab === 'rusak_berat', fn ($q) => $q->where('status', 'selesai')->where('hasil', 'tidak_bisa_diperbaiki'))
+            ->when(array_key_exists($jenis, Penanganan::JENIS), fn ($q) => $q->where('jenis_kerusakan', $jenis))
+            ->when($search !== '', function ($q) use ($search) {
+                $like = '%'.$search.'%';
+
+                $q->where(fn ($w) => $w
+                    ->whereRaw('LOWER(keluhan) LIKE ?', [$like])
+                    ->orWhereHas('inventory', fn ($i) => $i
+                        ->whereRaw('LOWER(kode_inventory) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(nama) LIKE ?', [$like]))
+                    ->orWhereHas('pelapor', fn ($u) => $u->whereRaw('LOWER(name) LIKE ?', [$like]))
+                );
+            })
+            // antrian menunggu: yang paling lama dilaporkan di atas; tab lain: terbaru di atas
+            ->when($tab === 'menunggu', fn ($q) => $q->orderBy('id'), fn ($q) => $q->orderByDesc('id'))
+            ->paginate($perPage)
+            ->through(fn (Penanganan $p) => $this->payload($p));
+
+        // laporan yang sudah lewat 7 hari dan belum diterima (untuk lencana peringatan di halaman)
+        $terlambat = Penanganan::where('status', 'dilaporkan')
+            ->where('tanggal_lapor', '<', now()->subDays(7)->toDateString())
+            ->count();
+
+        return response()->json(array_merge($paginator->toArray(), ['terlambat' => $terlambat]));
+    }
+
     // GET /inventory/{inventory}/penanganan -> riwayat kerusakan & perbaikan barang ini, terbaru di atas
     public function riwayat(Inventory $inventory): JsonResponse
     {
@@ -73,6 +115,49 @@ class PenangananController extends Controller
         return response()->json($this->payload($penanganan->load(['pelapor:id,name', 'penerima:id,name'])), 201);
     }
 
+    // POST /penanganan/{penanganan}/terima { tanggal_diterima }
+    // -> laporan diterima untuk diperbaiki: status penanganan jadi diterima, status barang jadi diperbaiki.
+    // Tidak ada struk di tahap ini (struk dicetak setelah perbaikan selesai).
+    public function terima(TerimaPenangananRequest $request, Penanganan $penanganan): JsonResponse
+    {
+        // TODO(permission): hanya admin yang boleh menerima laporan
+        $user = $request->user();
+        $data = $request->validated();
+
+        $diterima = DB::transaction(function () use ($penanganan, $data, $user) {
+            // kunci laporannya lalu cek ulang, supaya dua admin yang menerima bersamaan tidak lolos
+            $locked = Penanganan::lockForUpdate()->findOrFail($penanganan->id);
+
+            if ($locked->status !== 'dilaporkan') {
+                throw ValidationException::withMessages([
+                    'penanganan' => 'Laporan ini sudah diproses atau dibatalkan, tidak bisa diterima lagi.',
+                ]);
+            }
+
+            if ($data['tanggal_diterima'] < $locked->tanggal_lapor->format('Y-m-d')) {
+                throw ValidationException::withMessages([
+                    'tanggal_diterima' => 'Tanggal diterima tidak boleh sebelum tanggal lapor.',
+                ]);
+            }
+
+            $inventory = Inventory::lockForUpdate()->findOrFail($locked->inventory_id);
+
+            $locked->update([
+                'status' => 'diterima',
+                'tanggal_diterima' => $data['tanggal_diterima'],
+                'diterima_at' => now(),
+                'diterima_oleh_user_id' => $user->id,
+            ]);
+
+            // hanya status yang berubah; peminjam_id dibiarkan (kalau barang dipegang peminjam, tetap dipegang)
+            $inventory->update(['status' => 'diperbaiki']);
+
+            return $locked;
+        });
+
+        return response()->json($this->payload($diterima->load(['inventory:id,kode_inventory,nama,merk,type,serial_number,warna', 'pelapor:id,name', 'penerima:id,name'])));
+    }
+
     private function isAdmin(User $user): bool
     {
         return $user->role?->nama === 'admin';
@@ -122,6 +207,18 @@ class PenangananController extends Controller
         return [
             'id' => $p->id,
             'inventory_id' => $p->inventory_id,
+            // hanya terisi kalau relasinya dimuat (daftar halaman Penanganan)
+            'inventory' => $p->relationLoaded('inventory') && $p->inventory
+                ? [
+                    'id' => $p->inventory->id,
+                    'kode_inventory' => $p->inventory->kode_inventory,
+                    'nama' => $p->inventory->nama,
+                    'merk' => $p->inventory->merk,
+                    'type' => $p->inventory->type,
+                    'serial_number' => $p->inventory->serial_number,
+                    'warna' => $p->inventory->warna,
+                ]
+                : null,
             'peminjaman_id' => $p->peminjaman_id,
             'status' => $p->status,
             'status_sebelum' => $p->status_sebelum,

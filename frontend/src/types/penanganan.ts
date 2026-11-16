@@ -29,6 +29,16 @@ export const HASIL_PENANGANAN = [
 export interface Penanganan {
   id: number;
   inventory_id: number;
+  // hanya terisi di daftar halaman Penanganan
+  inventory: {
+    id: number;
+    kode_inventory: string;
+    nama: string | null;
+    merk: string | null;
+    type: string | null;
+    serial_number: string | null;
+    warna: string | null;
+  } | null;
   peminjaman_id: number | null;
   status: StatusPenanganan;
   status_sebelum: string;
@@ -50,3 +60,13 @@ export interface Penanganan {
   pelapor: string | null;
   penerima: string | null;
 }
+
+// tab halaman Penanganan; `key` = nilai ?status= yang dikirim ke server
+export const TAB_PENANGANAN = [
+  { key: 'menunggu', label: 'Menunggu Terima' },
+  { key: 'diproses', label: 'Sedang Diperbaiki' },
+  { key: 'berhasil', label: 'Berhasil Diperbaiki' },
+  { key: 'rusak_berat', label: 'Rusak Berat' },
+] as const;
+
+export type TabPenanganan = (typeof TAB_PENANGANAN)[number]['key'];

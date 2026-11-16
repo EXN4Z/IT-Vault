@@ -50,7 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/inventory/{inventory}/riwayat', [PeminjamanController::class, 'riwayat']);
     Route::get('/peminjaman/{peminjaman}/struk-pengembalian', [PeminjamanController::class, 'strukPengembalian']);
 
-    // penanganan kerusakan: lapor dan riwayat per barang (juga di atas apiResource)
+    // penanganan kerusakan: daftar untuk halaman Penanganan, lapor, dan riwayat per barang (juga di atas apiResource)
+    Route::get('/penanganan', [PenangananController::class, 'index']);
+    Route::post('/penanganan/{penanganan}/terima', [PenangananController::class, 'terima']);
     Route::get('/inventory/{inventory}/penanganan', [PenangananController::class, 'riwayat']);
     Route::post('/inventory/{inventory}/lapor-kerusakan', [PenangananController::class, 'store']);
 
