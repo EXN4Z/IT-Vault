@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* mode gelap dikontrol lewat class `dark` di <html>, bukan prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* =============================================================================
+   TOKEN WARNA: SATU-SATUNYA TEMPAT UNTUK MENGGANTI WARNA APLIKASI
+   - Nilai mode terang ada di @theme, nilai mode gelap ada di html.dark (di bawahnya).
+   - Komponen hanya memakai nama token (bg-surface, text-ink, border-line, dst.),
+     tanpa varian `dark:` dan tanpa warna mentah (slate-900, zinc-800, dst.).
+   - Mau ganti warna? Ubah nilainya di sini, seluruh halaman ikut berubah.
+   ============================================================================= */
+@theme {
+  /* ----- latar ----- */
+  --color-canvas: #ffffff; /* latar utama: top bar dan panel sidebar */
+  --color-rail: #fafafb; /* kolom ikon sidebar */
+  --color-page: #f4f4f5; /* area isi halaman dan latar halaman login */
+  --color-surface: #ffffff; /* kartu dan dropdown */
+  --color-field: #fafafb; /* latar input */
+  --color-popover: #ffffff; /* panel dropdown yang melayang di atas modal / kartu */
+
+  /* ----- garis ----- */
+  --color-line: #e8e8ec;
+
+  /* ----- teks ----- */
+  --color-ink: #18181b; /* teks utama */
+  --color-ink-soft: #52525b; /* teks sekunder */
+  --color-ink-muted: #71717a; /* teks pudar, placeholder, ikon */
+
+  /* ----- keadaan interaksi ----- */
+  --color-hover: #f4f4f6; /* latar saat di-hover */
+  --color-selected: #ededf1; /* latar item terpilih (sub-menu, ikon rail) */
+
+  /* ----- tombol utama ----- */
+  --color-solid: #18181b;
+  --color-solid-hover: #27272a;
+  --color-solid-ink: #ffffff; /* teks di atas tombol utama */
+
+  /* ----- aksen dan status ----- */
+  --color-accent: #5b4a9b; /* fokus input, penanda utama */
+  --color-danger: #dc2626; /* teks error / keluar */
+  --color-danger-bg: #fef2f2; /* latar error / keluar */
+  --color-success: #10b981; /* indikator online, status aktif */
+  --color-warn: #f97316; /* titik role admin */
+  --color-info: #8b7cf6; /* titik role user */
+
+  /* ----- animasi: dipakai sebagai class `animate-fade-in` ----- */
+  --animate-fade-in: fade-in 150ms ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* nilai mode gelap: nama token SAMA dengan di atas, hanya nilainya yang berbeda */
+html.dark {
+  color-scheme: dark;
+
+  --color-canvas: #121214;
+  --color-rail: #0e0e10;
+  --color-page: #18181b;
+  --color-surface: #141417; /* kotak besar + tabel, sebelumnya #1f1f23 */
+  --color-field: #0f0f12;   /* kolom cari, sebelumnya #18181b */
+  --color-popover: #202025; /* lebih terang dari surface, supaya panel dropdown kelihatan terpisah dari modal */
+
+  --color-line: #26262b;    /* garis, sebelumnya #2c2c31 (opsional, biar tidak terlalu terang) */
+
+  --color-ink: #fafafa;
+  --color-ink-soft: #d4d4d8;
+  --color-ink-muted: #a1a1aa;
+
+  --color-hover: #1d1d21;   /* header tabel + bar tab, sebelumnya #2a2a30 */
+  --color-selected: #3a3a42;
+
+  --color-solid: #27272a;
+  --color-solid-hover: #3f3f46;
+  --color-solid-ink: #ffffff;
+
+  --color-accent: #a594f5;
+  --color-danger: #ffb9ad;
+  --color-danger-bg: #2a2a30;
+  --color-success: #34d399;
+  --color-warn: #fb923c;
+  --color-info: #a594f5;
+}
+
+/* warna dasar halaman (di luar komponen) */
+body {
+  background-color: var(--color-page);
+  color: var(--color-ink);
+}

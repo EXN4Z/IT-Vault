@@ -1,0 +1,40 @@
+import { api } from '../lib/api';
+import type { KaryawanOption, KembalikanPayload, PengembalianReceipt, RiwayatRow, SerahTerimaReceipt } from '../types/peminjaman';
+
+export const peminjamanService = {
+  // GET /peminjaman/karyawan (karyawan aktif, untuk "Cari Karyawan Peminjam")
+  async karyawan(): Promise<KaryawanOption[]> {
+    const { data } = await api.get<KaryawanOption[]>('/peminjaman/karyawan');
+    return data;
+  },
+
+  // POST /inventory/{id}/serahkan (multipart karena ada 3 foto)
+  async serahkan(inventoryId: number, form: FormData): Promise<SerahTerimaReceipt> {
+    const { data } = await api.post<SerahTerimaReceipt>(`/inventory/${inventoryId}/serahkan`, form);
+    return data;
+  },
+
+  // GET /inventory/{id}/struk (cetak ulang struk; nomor tetap, kelengkapan sesuai kondisi terbaru)
+  async struk(inventoryId: number): Promise<SerahTerimaReceipt> {
+    const { data } = await api.get<SerahTerimaReceipt>(`/inventory/${inventoryId}/struk`);
+    return data;
+  },
+
+  // POST /inventory/{id}/kembalikan (butuh nomor penerimaan; balasannya data struk pengembalian)
+  async kembalikan(inventoryId: number, payload: KembalikanPayload): Promise<PengembalianReceipt> {
+    const { data } = await api.post<PengembalianReceipt>(`/inventory/${inventoryId}/kembalikan`, payload);
+    return data;
+  },
+
+  // GET /peminjaman/{id}/struk-pengembalian (cetak ulang struk pengembalian dari riwayat)
+  async strukPengembalian(peminjamanId: number): Promise<PengembalianReceipt> {
+    const { data } = await api.get<PengembalianReceipt>(`/peminjaman/${peminjamanId}/struk-pengembalian`);
+    return data;
+  },
+
+  // GET /inventory/{id}/riwayat (peminjaman sebagai barang utama dan sebagai kelengkapan)
+  async riwayat(inventoryId: number): Promise<RiwayatRow[]> {
+    const { data } = await api.get<RiwayatRow[]>(`/inventory/${inventoryId}/riwayat`);
+    return data;
+  },
+};
