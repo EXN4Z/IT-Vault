@@ -37,6 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/inventory/{inventory}/link-candidates', [InventoryController::class, 'linkCandidates']);
     Route::post('/inventory/{inventory}/link', [InventoryController::class, 'link']);
     Route::delete('/inventory/{inventory}/link', [InventoryController::class, 'unlink']);
+    Route::get('/inventory/{inventory}/kelengkapan', [InventoryController::class, 'kelengkapan']);
+    Route::post('/inventory/{inventory}/jual', [InventoryController::class, 'jual']);
+    Route::post('/inventory/import', [InventoryController::class, 'import']);
+    Route::post('/inventory/export', [InventoryController::class, 'export']);
 
     // serah terima inventory ke karyawan (juga di atas apiResource)
     Route::get('/peminjaman/karyawan', [PeminjamanController::class, 'karyawan']);
