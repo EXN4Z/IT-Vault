@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { ExternalLink, Wrench } from 'lucide-react';
+import { ExternalLink, Printer, Wrench } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
 import Badge from '../../../components/ui/Badge';
-import { btnOutline } from '../../../components/ui/buttonStyles';
-import { rupiah, tglJam } from '../../../lib/waktu';
+import { btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
+import { openReceiptWindow, writePenangananReceipt } from '../../../lib/receipt';
+import { formatDurasi, rupiah, tglJam } from '../../../lib/waktu';
 import { HASIL_PENANGANAN, STATUS_PENANGANAN, type Penanganan } from '../../../types/penanganan';
 
 interface PenangananDetailModalProps {
@@ -42,8 +43,15 @@ export default function PenangananDetailModal({ open, penanganan: p, onClose }: 
   const dibatalkan = p?.status === 'dibatalkan';
   const diterima = !!p?.tanggal_diterima;
   const selesai = !!p?.tanggal_selesai;
-  const totalBiaya = p && selesai ? Number(p.harga_jasa ?? 0) + Number(p.biaya_komponen ?? 0) : null;
+  const totalBiaya = p && selesai && (p.harga_jasa !== null || p.biaya_komponen !== null) ? Number(p.harga_jasa ?? 0) + Number(p.biaya_komponen ?? 0) : null;
   const barang = p?.inventory;
+
+  // cetak ulang struk (data sudah ada di sini); jendela harus dibuka langsung di klik
+  const cetakStruk = () => {
+    if (!p) return;
+    const win = openReceiptWindow();
+    if (win) writePenangananReceipt(win, p);
+  };
 
   return (
     <Modal
@@ -53,7 +61,16 @@ export default function PenangananDetailModal({ open, penanganan: p, onClose }: 
       eyebrow={p ? [barang?.kode_inventory, p.jenis_label].filter(Boolean).join(' · ') : undefined}
       titleExtra={p && <Badge dot={status?.dot ?? 'bg-ink-muted'}>{status?.label ?? p.status}</Badge>}
       size="lg"
-      footer={<button type="button" className={btnOutline} onClick={onClose}>Tutup</button>}
+      footer={
+        <>
+          <button type="button" className={btnOutline} onClick={onClose}>Tutup</button>
+          {p?.no_struk && (
+            <button type="button" className={btnSolid} onClick={cetakStruk}>
+              <Printer size={14} />Cetak struk
+            </button>
+          )}
+        </>
+      }
     >
       {p && (
         <div className="flex flex-col gap-5">
@@ -111,7 +128,8 @@ export default function PenangananDetailModal({ open, penanganan: p, onClose }: 
                 </Step>
               ) : (
                 <Step title="Selesai" done={selesai} tone={p.hasil === 'tidak_bisa_diperbaiki' ? 'bg-danger' : 'bg-success'}>
-                  <InfoRow label="Waktu">{tglJam(p.tanggal_selesai, p.selesai_at)}</InfoRow>
+                  <InfoRow label="Waktu Pengerjaan">{`${tglJam(p.tanggal_diterima, p.diterima_at)} - ${tglJam(p.tanggal_selesai, p.selesai_at)}`}</InfoRow>
+                  <InfoRow label="Durasi">{p.diterima_at && p.selesai_at ? formatDurasi(p.diterima_at, p.selesai_at) : '-'}</InfoRow>
                   <InfoRow label="Hasil">{hasil?.label ?? '-'}</InfoRow>
                   <InfoRow label="Harga jasa">{rupiah(p.harga_jasa)}</InfoRow>
                   <InfoRow label="Biaya komponen">{rupiah(p.biaya_komponen)}</InfoRow>

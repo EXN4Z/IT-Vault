@@ -1,9 +1,18 @@
 import { api } from '../lib/api';
-import type { Penanganan } from '../types/penanganan';
+import type { HasilPenanganan, Penanganan } from '../types/penanganan';
 import type { Paginated } from '../types/user';
 
 // daftar halaman Penanganan: paginasi biasa + jumlah laporan yang belum diterima lewat 7 hari
 export type PenangananList = Paginated<Penanganan> & { terlambat: number };
+
+// isian form Selesaikan; harga kosong dikirim sebagai null (server menyimpannya 0)
+export interface SelesaiPayload {
+  hasil: HasilPenanganan;
+  tanggal_selesai: string; // 'YYYY-MM-DD'
+  harga_jasa: number | null;
+  biaya_komponen: number | null;
+  catatan: string | null;
+}
 
 export const penangananService = {
   // GET /penanganan?status=menunggu&jenis=&search=...
@@ -23,6 +32,12 @@ export const penangananService = {
   // POST /penanganan/{id}/terima (laporan diterima untuk diperbaiki; penerima = user yang login)
   async terima(id: number, tanggalDiterima: string): Promise<Penanganan> {
     const { data } = await api.post<Penanganan>(`/penanganan/${id}/terima`, { tanggal_diterima: tanggalDiterima });
+    return data;
+  },
+
+  // POST /penanganan/{id}/selesai (perbaikan selesai; no_struk dibuat server, jadi balasannya langsung bisa dicetak)
+  async selesai(id: number, payload: SelesaiPayload): Promise<Penanganan> {
+    const { data } = await api.post<Penanganan>(`/penanganan/${id}/selesai`, payload);
     return data;
   },
 

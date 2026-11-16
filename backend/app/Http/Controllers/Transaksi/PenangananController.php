@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Transaksi;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transaksi\LaporKerusakanRequest;
+use App\Http\Requests\Transaksi\SelesaikanPenangananRequest;
 use App\Http\Requests\Transaksi\TerimaPenangananRequest;
 use App\Models\Inventory;
 use App\Models\Peminjaman;
@@ -13,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -156,6 +158,66 @@ class PenangananController extends Controller
         });
 
         return response()->json($this->payload($diterima->load(['inventory:id,kode_inventory,nama,merk,type,serial_number,warna', 'pelapor:id,name', 'penerima:id,name'])));
+    }
+
+    // POST /penanganan/{penanganan}/selesai { hasil, tanggal_selesai, harga_jasa, biaya_komponen, catatan }
+    // -> perbaikan selesai (berhasil atau tidak bisa diperbaiki). Nomor struk dibuat server.
+    // Status barang: berhasil -> dipinjam (kalau masih dipegang peminjam) atau tersedia; tidak bisa diperbaiki -> rusak_berat.
+    public function selesai(SelesaikanPenangananRequest $request, Penanganan $penanganan): JsonResponse
+    {
+        // TODO(permission): hanya admin yang boleh menyelesaikan penanganan
+        $data = $request->validated();
+
+        $selesai = DB::transaction(function () use ($penanganan, $data) {
+            // kunci laporannya lalu cek ulang, supaya dua admin yang menyelesaikan bersamaan tidak lolos
+            $locked = Penanganan::lockForUpdate()->findOrFail($penanganan->id);
+
+            if ($locked->status !== 'diterima') {
+                throw ValidationException::withMessages([
+                    'penanganan' => 'Laporan ini belum diterima, sudah selesai, atau dibatalkan, jadi tidak bisa diselesaikan.',
+                ]);
+            }
+
+            if ($data['tanggal_selesai'] < $locked->tanggal_diterima->format('Y-m-d')) {
+                throw ValidationException::withMessages([
+                    'tanggal_selesai' => 'Tanggal selesai tidak boleh sebelum tanggal diterima.',
+                ]);
+            }
+
+            $inventory = Inventory::lockForUpdate()->findOrFail($locked->inventory_id);
+            $berhasil = $data['hasil'] === 'berhasil';
+
+            $locked->update([
+                'status' => 'selesai',
+                'hasil' => $data['hasil'],
+                'tanggal_selesai' => $data['tanggal_selesai'],
+                'selesai_at' => now(),
+                // rusak berat boleh kosong: disimpan null (di struk tampil '-'), bukan 0
+                'harga_jasa' => $data['harga_jasa'] ?? null,
+                'biaya_komponen' => $data['biaya_komponen'] ?? null,
+                'catatan' => $data['catatan'] ?? null,
+                'no_struk' => $this->nomorStruk(),
+            ]);
+
+            // hanya status yang berubah; peminjam_id dibiarkan (barang tetap dipegang peminjamnya)
+            $inventory->update([
+                'status' => $berhasil ? ($inventory->peminjam_id !== null ? 'dipinjam' : 'tersedia') : 'rusak_berat',
+            ]);
+
+            return $locked;
+        });
+
+        return response()->json($this->payload($selesai->load(['inventory:id,kode_inventory,nama,merk,type,serial_number,warna', 'pelapor:id,name', 'penerima:id,name'])));
+    }
+
+    // format: PNG- + 6 karakter acak + jam-menit-detik, mis. PNG-95AYFF-131126 (dicek unik)
+    private function nomorStruk(): string
+    {
+        do {
+            $nomor = 'PNG-'.strtoupper(Str::random(6)).'-'.now()->format('His');
+        } while (Penanganan::where('no_struk', $nomor)->exists());
+
+        return $nomor;
     }
 
     private function isAdmin(User $user): bool

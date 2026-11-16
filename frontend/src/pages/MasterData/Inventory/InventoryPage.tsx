@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  BadgeDollarSign, Boxes, CircleCheck, Clock, Eye, HandHelping, Link2, Loader2, OctagonAlert, Pencil, Plus, Printer, RotateCcw, Trash2, Unlink, UserCheck, Wrench,
+  BadgeDollarSign, Boxes, CircleCheck, Clock, Eye, HandHelping, Link2, Loader2, OctagonAlert, Pencil, Plus, Printer, RotateCcw, Tag, Trash2, Unlink, UserCheck, Wrench,
 } from 'lucide-react';
 import DataTable, { type Column } from '../../../components/ui/DataTable';
 import Badge from '../../../components/ui/Badge';
@@ -17,6 +17,7 @@ import { INVENTORY_STATUSES, type InventoryRow } from '../../../types/inventory'
 import InventoryDetailModal from './InventoryDetailModal';
 import InventoryFormModal from './InventoryFormModal';
 import InventoryHandoverModal from './InventoryHandOverModal';
+import InventoryJualModal from './InventoryJualModal';
 import InventoryLinkModal from './InventoryLinkModal';
 import InventoryReturnModal from './InventoryReturnModal';
 import PenangananLaporModal from './PenangananLaporModal';
@@ -71,6 +72,10 @@ export default function InventoryPage() {
   // modal lapor kerusakan (target tidak di-null-kan saat tutup, alasannya sama)
   const [reportOpen, setReportOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<InventoryRow | null>(null);
+
+  // modal jual inventory (target tidak di-null-kan saat tutup, alasannya sama)
+  const [jualOpen, setJualOpen] = useState(false);
+  const [jualTarget, setJualTarget] = useState<InventoryRow | null>(null);
 
   // cetak ulang struk: id barang yang sedang diproses (untuk menonaktifkan tombolnya) dan pesan gagalnya
   const [printingId, setPrintingId] = useState<number | null>(null);
@@ -164,6 +169,11 @@ export default function InventoryPage() {
     setReportOpen(true);
   };
 
+  const openJual = (row: InventoryRow) => {
+    setJualTarget(row);
+    setJualOpen(true);
+  };
+
   const openDetail = (row: InventoryRow) => {
     setDetailTarget(row);
     setDetailOpen(true);
@@ -245,15 +255,26 @@ export default function InventoryPage() {
         <span className="flex items-center gap-0.5">
           {i.parent_id !== null ? (
             // sudah jadi kelengkapan: harus dilepas dulu sebelum bisa link ke inventory lain
-            <button type="button" aria-label="Lepas link" title={`Lepas link dari ${i.parent?.kode_inventory ?? 'barang utama'}`} className={iconBtn} onClick={() => openLink(i)}><Unlink size={14} /></button>
+            <button
+              type="button"
+              aria-label="Lepas link"
+              title={i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci' : `Lepas link dari ${i.parent?.kode_inventory ?? 'barang utama'}`}
+              className={iconBtn}
+              disabled={i.status === 'dijual'}
+              onClick={() => openLink(i)}
+            ><Unlink size={14} /></button>
           ) : (
             // sudah jadi barang utama: tidak boleh link ke inventory lain
             <button
               type="button"
               aria-label="Link ke barang utama"
-              title={(i.children_count ?? 0) > 0 ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain' : 'Link ke barang utama'}
+              title={
+                i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci'
+                  : (i.children_count ?? 0) > 0 ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain'
+                    : 'Link ke barang utama'
+              }
               className={iconBtn}
-              disabled={(i.children_count ?? 0) > 0}
+              disabled={i.status === 'dijual' || (i.children_count ?? 0) > 0}
               onClick={() => openLink(i)}
             ><Link2 size={14} /></button>
           )}
@@ -295,9 +316,24 @@ export default function InventoryPage() {
             disabled={i.status !== 'tersedia' && i.status !== 'dipinjam'}
             onClick={() => openReport(i)}
           ><Wrench size={14} /></button>
+          {/* hanya Rusak Berat yang bisa dijual, dan kelengkapan yang masih nempel harus dilepas dulu */}
+          {i.status === 'rusak_berat' && (
+            <button
+              type="button"
+              aria-label="Jual inventory"
+              title={
+                i.parent_id !== null ? 'Masih jadi kelengkapan, lepas link dulu sebelum dijual'
+                  : (i.children_count ?? 0) > 0 ? 'Masih ada kelengkapan yang terpasang, lepas link semuanya dulu sebelum dijual'
+                    : 'Jual inventory'
+              }
+              className={iconBtn}
+              disabled={i.parent_id !== null || (i.children_count ?? 0) > 0}
+              onClick={() => openJual(i)}
+            ><Tag size={14} /></button>
+          )}
           <button type="button" aria-label="Detail" title="Detail" className={iconBtn} onClick={() => openDetail(i)}><Eye size={14} /></button>
-          <button type="button" aria-label="Ubah" className={iconBtn} onClick={() => openEdit(i)}><Pencil size={14} /></button>
-          <button type="button" aria-label="Hapus" className={`${iconBtn} hover:text-danger`} onClick={() => openDelete(i)}><Trash2 size={14} /></button>
+          <button type="button" aria-label="Ubah" title={i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci' : 'Ubah'} className={iconBtn} disabled={i.status === 'dijual'} onClick={() => openEdit(i)}><Pencil size={14} /></button>
+          <button type="button" aria-label="Hapus" title={i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci' : 'Hapus'} className={`${iconBtn} hover:text-danger`} disabled={i.status === 'dijual'} onClick={() => openDelete(i)}><Trash2 size={14} /></button>
         </span>
       ),
     },
@@ -377,6 +413,14 @@ export default function InventoryPage() {
         onReturn={openReturn}
         onLink={openLink}
         onReport={openReport}
+        onSell={openJual}
+      />
+
+      <InventoryJualModal
+        open={jualOpen}
+        inventory={jualTarget}
+        onClose={() => setJualOpen(false)}
+        onSaved={() => setReloadKey((k) => k + 1)}
       />
 
       <PenangananLaporModal

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { CircleCheck, Eye, Inbox, Loader2, Printer } from 'lucide-react';
 import DataTable, { type Column } from '../../../components/ui/DataTable';
 import Badge from '../../../components/ui/Badge';
 import SearchField from '../../../components/ui/SearchField';
@@ -8,14 +8,18 @@ import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import { ComboBox } from '../../../components/form';
 import { penangananService } from '../../../services/penangananService';
 import { getErrorMessage } from '../../../lib/errors';
-import { tglJam } from '../../../lib/waktu';
-import { btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
+import { openReceiptWindow, writePenangananReceipt } from '../../../lib/receipt';
+import { formatDurasi, rupiah, tglJam } from '../../../lib/waktu';
 import PenangananDetailModal from './PenangananDetailModal';
+import PenangananSelesaiModal from './PenangananSelesaiModal';
 import PenangananTerimaModal from './PenangananTerimaModal';
 import { JENIS_KERUSAKAN, TAB_PENANGANAN, type Penanganan, type TabPenanganan } from '../../../types/penanganan';
 
 const PER_PAGE = 10;
 const BATAS_HARI = 7; // laporan yang belum diterima lebih dari ini ditandai terlambat
+
+// tombol ikon di kolom Aksi (sama dengan halaman Inventory)
+const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink';
 
 const JENIS_OPTIONS = JENIS_KERUSAKAN.map((j) => ({ value: j.key, label: j.label }));
 
@@ -27,6 +31,10 @@ function hariSejak(tanggal: string): number {
   const hariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.max(0, Math.round((hariIni.getTime() - lapor.getTime()) / 86_400_000));
 }
+
+// total biaya perbaikan (harga jasa + biaya komponen), server mengirim decimal sebagai string
+// (null kalau keduanya kosong, mis. rusak berat tanpa biaya)
+const totalBiaya = (p: Penanganan) => (p.harga_jasa === null && p.biaya_komponen === null ? null : Number(p.harga_jasa ?? 0) + Number(p.biaya_komponen ?? 0));
 
 // halaman Penanganan Inventory: antrian laporan kerusakan sampai selesai diperbaiki.
 // Lapor dilakukan dari halaman Inventory; di sini hanya memproses (terima, selesaikan) dan memantau.
@@ -51,6 +59,28 @@ export default function PenangananPage() {
   // modal terima laporan (target tidak di-null-kan saat tutup, alasannya sama)
   const [terimaOpen, setTerimaOpen] = useState(false);
   const [terimaTarget, setTerimaTarget] = useState<Penanganan | null>(null);
+
+  // modal selesaikan perbaikan (target tidak di-null-kan saat tutup, alasannya sama)
+  const [selesaiOpen, setSelesaiOpen] = useState(false);
+  const [selesaiTarget, setSelesaiTarget] = useState<Penanganan | null>(null);
+
+  const [notice, setNotice] = useState(''); // pesan di atas tabel (mis. popup struk diblokir)
+
+  const openSelesai = (p: Penanganan) => {
+    setSelesaiTarget(p);
+    setSelesaiOpen(true);
+  };
+
+  // cetak ulang struk: datanya sudah ada di baris, tidak perlu request. Jendela dibuka langsung di klik.
+  const cetakStruk = (p: Penanganan) => {
+    const win = openReceiptWindow();
+    if (!win) {
+      setNotice('Jendela struk diblokir browser. Izinkan popup untuk situs ini, lalu coba lagi.');
+      return;
+    }
+    setNotice('');
+    writePenangananReceipt(win, p);
+  };
 
   const openTerima = (p: Penanganan) => {
     setTerimaTarget(p);
@@ -102,41 +132,69 @@ export default function PenangananPage() {
     return () => { ignore = true; };
   }, [page, tab, jenis, search, reloadKey]);
 
-  const columns: Column<Penanganan>[] = [
-    {
-      key: 'foto', header: 'Foto', width: '64px',
-      cell: (p) => (
-        <a href={p.foto_url} target="_blank" rel="noreferrer" title="Lihat foto kerusakan">
-          <img src={p.foto_url} alt="Foto kerusakan" className="size-9 rounded-md border border-line object-cover" />
-        </a>
-      ),
+  // kolom: sebagian dipakai bersama, sisanya beda per tab
+  const fotoCol: Column<Penanganan> = {
+    key: 'foto', header: 'Foto', width: '56px',
+    cell: (p) => (
+      <a href={p.foto_url} target="_blank" rel="noreferrer" title="Lihat foto kerusakan">
+        <img src={p.foto_url} alt="Foto kerusakan" className="size-9 rounded-md border border-line object-cover" />
+      </a>
+    ),
+  };
+  const kodeCol: Column<Penanganan> = { key: 'kode', header: 'Kode', width: '105px', cell: (p) => <span className="truncate font-semibold">{p.inventory?.kode_inventory ?? '-'}</span> };
+  const namaCol: Column<Penanganan> = { key: 'nama', header: 'Nama Barang', width: 'minmax(100px,1fr)', cell: (p) => <span className="truncate font-semibold">{p.inventory?.nama ?? '-'}</span> };
+  const jenisCol: Column<Penanganan> = { key: 'jenis', header: 'Jenis', width: '115px', cell: (p) => <span className="truncate">{p.jenis_label}</span> };
+  const keluhanCol: Column<Penanganan> = { key: 'keluhan', header: 'Keluhan', width: 'minmax(100px,1.4fr)', cell: (p) => <span className="truncate text-ink-soft" title={p.keluhan}>{p.keluhan}</span> };
+  const pelaporCol: Column<Penanganan> = { key: 'pelapor', header: 'Pelapor', width: 'minmax(70px,0.8fr)', cell: (p) => <span className="truncate">{p.pelapor ?? '-'}</span> };
+  const laporCol: Column<Penanganan> = { key: 'tanggal', header: 'Dilaporkan', width: '135px', cell: (p) => <span className="truncate">{tglJam(p.tanggal_lapor, p.lapor_at)}</span> };
+  const menungguCol: Column<Penanganan> = {
+    key: 'menunggu', header: 'Menunggu', width: '85px', align: 'center',
+    cell: (p) => {
+      const hari = hariSejak(p.tanggal_lapor);
+      return <Badge dot={hari > BATAS_HARI ? 'bg-danger' : 'bg-warn'}>{hari === 0 ? 'Hari ini' : `${hari} hari`}</Badge>;
     },
-    { key: 'kode', header: 'Kode', width: '120px', cell: (p) => <span className="truncate font-semibold">{p.inventory?.kode_inventory ?? '-'}</span> },
-    { key: 'nama', header: 'Nama Barang', width: 'minmax(0,1fr)', cell: (p) => <span className="truncate font-semibold">{p.inventory?.nama ?? '-'}</span> },
-    { key: 'jenis', header: 'Jenis', width: '140px', cell: (p) => <span className="truncate">{p.jenis_label}</span> },
-    { key: 'keluhan', header: 'Keluhan', width: 'minmax(0,1.4fr)', cell: (p) => <span className="truncate text-ink-soft" title={p.keluhan}>{p.keluhan}</span> },
-    { key: 'pelapor', header: 'Pelapor', width: 'minmax(0,0.8fr)', cell: (p) => <span className="truncate">{p.pelapor ?? '-'}</span> },
-    { key: 'tanggal', header: 'Dilaporkan', width: '150px', cell: (p) => <span className="truncate">{tglJam(p.tanggal_lapor, p.lapor_at)}</span> },
-    {
-      key: 'menunggu', header: 'Menunggu', width: '100px', align: 'center',
-      cell: (p) => {
-        if (p.status !== 'dilaporkan') return <span className="text-ink-muted">-</span>;
-        const hari = hariSejak(p.tanggal_lapor);
-        return <Badge dot={hari > BATAS_HARI ? 'bg-danger' : 'bg-warn'}>{hari === 0 ? 'Hari ini' : `${hari} hari`}</Badge>;
-      },
-    },
-    {
-      key: 'aksi', header: 'Aksi', width: tab === 'menunggu' ? '200px' : '90px', align: 'right',
-      cell: (p) => (
-        <span className="flex items-center gap-1.5">
-          <button type="button" className={`${btnOutline} !h-8 !px-3`} onClick={() => openDetail(p)}>Detail</button>
-          {p.status === 'dilaporkan' && (
-            <button type="button" className={`${btnSolid} !h-8 !px-3`} onClick={() => openTerima(p)}>Terima laporan</button>
-          )}
-        </span>
-      ),
-    },
-  ];
+  };
+  const diterimaCol: Column<Penanganan> = { key: 'diterima', header: 'Diterima', width: '135px', cell: (p) => <span className="truncate">{tglJam(p.tanggal_diterima, p.diterima_at)}</span> };
+  const selesaiCol: Column<Penanganan> = { key: 'selesai', header: 'Selesai', width: '135px', cell: (p) => <span className="truncate">{tglJam(p.tanggal_selesai, p.selesai_at)}</span> };
+  const durasiCol: Column<Penanganan> = {
+    key: 'durasi', header: 'Durasi', width: '110px', align: 'center',
+    cell: (p) => (p.diterima_at && p.selesai_at ? <span>{formatDurasi(p.diterima_at, p.selesai_at)}</span> : <span className="text-ink-muted">-</span>),
+  };
+  const biayaCol: Column<Penanganan> = { key: 'biaya', header: 'Total Biaya', width: '105px', align: 'right', cell: (p) => <span className="truncate font-semibold">{rupiah(totalBiaya(p))}</span> };
+  const catatanCol: Column<Penanganan> = { key: 'catatan', header: 'Alasan', width: 'minmax(100px,1.4fr)', cell: (p) => <span className="truncate text-ink-soft" title={p.catatan ?? ''}>{p.catatan ?? '-'}</span> };
+  const aksiCol: Column<Penanganan> = {
+    key: 'aksi', header: 'Aksi', width: '90px', align: 'right',
+    cell: (p) => (
+      <span className="flex items-center gap-0.5">
+        {p.status === 'dilaporkan' && (
+          <button type="button" aria-label="Terima laporan" title="Terima laporan" className={`${iconBtn} hover:text-accent`} onClick={() => openTerima(p)}><Inbox size={14} /></button>
+        )}
+        {p.status === 'diterima' && (
+          <button type="button" aria-label="Selesaikan" title="Selesaikan perbaikan" className={`${iconBtn} hover:text-success`} onClick={() => openSelesai(p)}><CircleCheck size={14} /></button>
+        )}
+        {p.status === 'selesai' && p.no_struk && (
+          <button type="button" aria-label="Cetak struk" title="Cetak struk" className={iconBtn} onClick={() => cetakStruk(p)}><Printer size={14} /></button>
+        )}
+        <button type="button" aria-label="Detail" title="Detail" className={iconBtn} onClick={() => openDetail(p)}><Eye size={14} /></button>
+      </span>
+    ),
+  };
+
+  const columns: Column<Penanganan>[] =
+    tab === 'menunggu' ? [fotoCol, kodeCol, namaCol, jenisCol, keluhanCol, pelaporCol, laporCol, menungguCol, aksiCol]
+    : tab === 'diproses' ? [fotoCol, kodeCol, namaCol, jenisCol, keluhanCol, pelaporCol, diterimaCol, aksiCol]
+    : tab === 'berhasil' ? [fotoCol, kodeCol, namaCol, jenisCol, selesaiCol, durasiCol, biayaCol, aksiCol]
+    : [fotoCol, kodeCol, namaCol, jenisCol, selesaiCol, catatanCol, biayaCol, aksiCol]; // rusak_berat
+
+  // lebar minimum isi tabel per tab (jumlah lebar kolom + jarak): kalau layar lebih sempit, tabel bisa digeser, kolom tidak saling tindih
+  const minWidthByTab: Record<TabPenanganan, number> = { menunggu: 985, diproses: 890, berhasil: 930, rusak_berat: 920 };
+
+  const emptyByTab: Record<TabPenanganan, string> = {
+    menunggu: 'Tidak ada laporan yang menunggu verifikasi.',
+    diproses: 'Tidak ada barang yang sedang diperbaiki.',
+    berhasil: 'Belum ada perbaikan yang berhasil.',
+    rusak_berat: 'Belum ada barang yang dinyatakan rusak berat.',
+  };
 
   return (
     <div className="space-y-4">
@@ -183,17 +241,27 @@ export default function PenangananPage() {
           )}
         </p>
 
+        {notice && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{notice}</p>}
+
         <DataTable
           columns={columns}
           data={rows}
           rowKey={(p) => p.id}
           loading={loading}
-          emptyText={error || (tab === 'menunggu' ? 'Tidak ada laporan yang menunggu verifikasi.' : 'Belum ada data.')}
+          minWidth={minWidthByTab[tab]}
+          emptyText={error || emptyByTab[tab]}
           pagination={{ page, pageCount, onPageChange: setPage }}
         />
       </div>
 
       <PenangananDetailModal open={detailOpen} penanganan={detailTarget} onClose={() => setDetailOpen(false)} />
+
+      <PenangananSelesaiModal
+        open={selesaiOpen}
+        penanganan={selesaiTarget}
+        onClose={() => setSelesaiOpen(false)}
+        onSaved={() => setReloadKey((k) => k + 1)}
+      />
 
       <PenangananTerimaModal
         open={terimaOpen}

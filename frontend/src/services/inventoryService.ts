@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import type { InventoryLinkCandidate, InventoryOptions, InventoryPayload, InventoryRow } from '../types/inventory';
+import type { InventoryKelengkapan, InventoryLinkCandidate, InventoryOptions, InventoryPayload, InventoryRow } from '../types/inventory';
 import type { Paginated } from '../types/user';
 
 export const inventoryService = {
@@ -37,6 +37,12 @@ export const inventoryService = {
     return data;
   },
 
+  // GET /inventory/{id}/kelengkapan (kelengkapan yang sedang terpasang di barang utama ini)
+  async kelengkapan(id: number): Promise<InventoryKelengkapan[]> {
+    const { data } = await api.get<InventoryKelengkapan[]>(`/inventory/${id}/kelengkapan`);
+    return data;
+  },
+
   // POST /inventory
   async create(payload: InventoryPayload): Promise<InventoryRow> {
     const { data } = await api.post<InventoryRow>('/inventory', payload);
@@ -46,6 +52,12 @@ export const inventoryService = {
   // PUT /inventory/{id}
   async update(id: number, payload: InventoryPayload): Promise<InventoryRow> {
     const { data } = await api.put<InventoryRow>(`/inventory/${id}`, payload);
+    return data;
+  },
+
+  // POST /inventory/{id}/jual -> status jadi dijual (hanya Rusak Berat tanpa kelengkapan yang masih nempel)
+  async jual(id: number): Promise<InventoryRow> {
+    const { data } = await api.post<InventoryRow>(`/inventory/${id}/jual`);
     return data;
   },
 

@@ -49,7 +49,9 @@ class Inventory extends Model
             $oldId = $inventory->getOriginal('parent_id');
             $oldParent = $oldId ? self::find($oldId) : null;
 
-            $oldBorrowed = $oldParent?->status === 'dipinjam';
+            // induk yang rusak berat / diperbaiki tapi belum dikembalikan masih dipegang peminjamnya,
+            // jadi kelengkapan yang dilepas tetap harus ikut "dikembalikan" (kalau tidak, nyangkut di peminjam)
+            $oldBorrowed = $oldParent !== null && ($oldParent->status === 'dipinjam' || $oldParent->peminjam_id !== null);
             $newBorrowed = $newParent?->status === 'dipinjam';
 
             if ($oldBorrowed) {
@@ -144,6 +146,14 @@ class Inventory extends Model
     // return pesan error, atau null kalau boleh
     public function linkError(self $parent): ?string
     {
+        if ($this->status === 'dijual') {
+            return 'Inventory yang sudah dijual tidak bisa diubah lagi.';
+        }
+
+        if ($parent->status === 'dijual') {
+            return 'Inventory tujuan sudah dijual, jadi tidak bisa dijadikan barang utama.';
+        }
+
         if ($parent->is($this)) {
             return 'Inventory tidak bisa jadi barang utama dirinya sendiri.';
         }
@@ -164,6 +174,43 @@ class Inventory extends Model
         // dipasang ke barang utama yang dipinjam karyawan B
         if ($parent->status === 'dipinjam' && $this->status === 'dipinjam' && $this->peminjam_id !== $parent->peminjam_id) {
             return 'Inventory ini sedang dipinjam karyawan lain, jadi tidak bisa dipasang ke barang utama yang dipinjam karyawan berbeda.';
+        }
+
+        return null;
+    }
+
+    // inventory yang sudah dijual terkunci: datanya tetap ada tapi tidak bisa diubah, dihapus, atau di-link lagi
+    // return pesan error, atau null kalau boleh
+    public function terkunciError(): ?string
+    {
+        return $this->status === 'dijual'
+            ? 'Inventory yang sudah dijual tidak bisa diubah lagi.'
+            : null;
+    }
+
+    // aturan jual: hanya yang Rusak Berat, dan tidak boleh ada kelengkapan yang masih nempel
+    // (kelengkapan harus dilepas dulu; barang yang sendirinya masih jadi kelengkapan juga harus dilepas dulu)
+    // return pesan error, atau null kalau boleh
+    public function jualError(): ?string
+    {
+        if ($this->status === 'dijual') {
+            return 'Inventory ini sudah dijual.';
+        }
+
+        if ($this->status !== 'rusak_berat') {
+            return 'Hanya inventory berstatus Rusak Berat yang bisa dijual.';
+        }
+
+        if ($this->parent_id !== null) {
+            $induk = $this->parent?->kode_inventory ?? 'barang utama';
+
+            return "Inventory ini masih jadi kelengkapan dari {$induk}. Lepas link dulu sebelum dijual.";
+        }
+
+        $kelengkapan = $this->children()->orderBy('kode_inventory')->pluck('kode_inventory');
+
+        if ($kelengkapan->isNotEmpty()) {
+            return "Masih ada {$kelengkapan->count()} kelengkapan yang terpasang ({$kelengkapan->implode(', ')}). Lepas link semuanya dulu sebelum dijual.";
         }
 
         return null;

@@ -36,6 +36,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/inventory/{inventory}/link-candidates', [InventoryController::class, 'linkCandidates']);
     Route::post('/inventory/{inventory}/link', [InventoryController::class, 'link']);
     Route::delete('/inventory/{inventory}/link', [InventoryController::class, 'unlink']);
+    Route::get('/inventory/{inventory}/kelengkapan', [InventoryController::class, 'kelengkapan']);
+
+    // jual inventory (status dijual, hanya dari Rusak Berat; juga di atas apiResource)
+    Route::post('/inventory/{inventory}/jual', [InventoryController::class, 'jual']);
 
     // serah terima inventory ke karyawan (juga di atas apiResource)
     Route::get('/peminjaman/karyawan', [PeminjamanController::class, 'karyawan']);
@@ -50,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // penanganan kerusakan: daftar untuk halaman Penanganan, lapor, dan riwayat per barang (juga di atas apiResource)
     Route::get('/penanganan', [PenangananController::class, 'index']);
     Route::post('/penanganan/{penanganan}/terima', [PenangananController::class, 'terima']);
+    Route::post('/penanganan/{penanganan}/selesai', [PenangananController::class, 'selesai']);
     Route::get('/inventory/{inventory}/penanganan', [PenangananController::class, 'riwayat']);
     Route::post('/inventory/{inventory}/lapor-kerusakan', [PenangananController::class, 'store']);
 

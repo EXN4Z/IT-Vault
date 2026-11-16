@@ -1,10 +1,9 @@
 import { KONDISI_KEMBALI, type PengembalianReceipt, type SerahTerimaReceipt, type StrukInventory } from '../types/peminjaman';
+import { HASIL_PENANGANAN, type Penanganan } from '../types/penanganan';
+import { formatDurasi, formatTanggal, rupiah, tglJam } from './waktu';
 
-// 'YYYY-MM-DD' -> '1 Jul 2026'
-export function formatTanggal(value: string): string {
-  const [y, m, d] = value.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+// formatTanggal sekarang ada di waktu.ts; diekspor ulang di sini supaya impor lama dari receipt tetap jalan
+export { formatTanggal };
 
 // cegah teks dari database ikut dibaca sebagai HTML
 function esc(value: string): string {
@@ -117,6 +116,41 @@ export function writePengembalianReceipt(win: Window, r: PengembalianReceipt): v
     heading: 'Bukti Pengembalian Inventory',
     nomor: r.nomor_penerimaan,
     tanggal: formatTanggal(r.tanggal_pengembalian),
+    rows,
+  });
+}
+
+// isi jendela dengan struk penanganan (perbaikan selesai: berhasil diperbaiki maupun tidak bisa diperbaiki).
+// Semua datanya sudah ada di baris Penanganan dari server, jadi cetak ulang tidak butuh request lagi.
+export function writePenangananReceipt(win: Window, p: Penanganan): void {
+  const hasil = HASIL_PENANGANAN.find((h) => h.key === p.hasil)?.label ?? '-';
+  // kedua biaya kosong (rusak berat) -> total juga kosong, tampil '-' bukan Rp 0
+  const total = p.harga_jasa === null && p.biaya_komponen === null ? null : Number(p.harga_jasa ?? 0) + Number(p.biaya_komponen ?? 0);
+  const nomor = p.no_struk ?? '-';
+
+  const rows = [
+    row('Inventory', p.inventory ? inventoryLabel(p.inventory) : '-'),
+    row('Jenis Kerusakan', p.jenis_label),
+    row('Keluhan', p.keluhan),
+    row('Dilaporkan Oleh', p.pelapor ?? '-'),
+    row('Waktu Lapor', tglJam(p.tanggal_lapor, p.lapor_at)),
+    row('Diterima Oleh', p.penerima ?? '-'),
+    ...(p.tanggal_diterima ? [row('Waktu Diterima', tglJam(p.tanggal_diterima, p.diterima_at))] : []),
+    ...(p.tanggal_selesai ? [row('Waktu Selesai', tglJam(p.tanggal_selesai, p.selesai_at))] : []),
+    ...(p.diterima_at && p.selesai_at ? [row('Durasi Pengerjaan', formatDurasi(p.diterima_at, p.selesai_at))] : []),
+    row('Hasil', hasil),
+    row('Harga Jasa', rupiah(p.harga_jasa)),
+    row('Biaya Komponen', rupiah(p.biaya_komponen)),
+    row('Total Biaya', rupiah(total)),
+    ...(p.catatan ? [row('Catatan', p.catatan)] : []),
+    row('No. Struk', nomor),
+  ].join('');
+
+  writePage(win, {
+    title: 'Bukti Penanganan Inventory',
+    heading: 'Bukti Penanganan Inventory',
+    nomor,
+    tanggal: tglJam(p.tanggal_selesai, p.selesai_at),
     rows,
   });
 }

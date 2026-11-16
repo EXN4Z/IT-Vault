@@ -58,6 +58,17 @@ export interface InventoryOptions {
   inventory: { id: number; kode_inventory: string; nama: string | null }[];
 }
 
+// satu kelengkapan yang terpasang di barang utama (daftar di modal Detail)
+export interface InventoryKelengkapan {
+  id: number;
+  kode_inventory: string;
+  nama: string | null;
+  merk: string | null;
+  type: string | null;
+  serial_number: string | null;
+  status: InventoryStatus;
+}
+
 // pilihan barang utama di modal Link
 export interface InventoryLinkCandidate {
   id: number;

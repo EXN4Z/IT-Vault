@@ -25,6 +25,8 @@ export const HASIL_PENANGANAN = [
   { key: 'tidak_bisa_diperbaiki', label: 'Tidak bisa diperbaiki' },
 ] as const;
 
+export type HasilPenanganan = (typeof HASIL_PENANGANAN)[number]['key'];
+
 // satu penanganan, sama dengan payload() di PenangananController
 export interface Penanganan {
   id: number;

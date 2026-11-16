@@ -2,12 +2,15 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Eye, HandHelping, ImageOff, Link2, Loader2, Printer, RotateCcw, Tag, Unlink, Wrench } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
 import Badge from '../../../components/ui/Badge';
+import Pagination from '../../../components/ui/Pagination';
 import { btnOutline } from '../../../components/ui/buttonStyles';
+import { inventoryService } from '../../../services/inventoryService';
 import { peminjamanService } from '../../../services/peminjamanService';
 import { penangananService } from '../../../services/penangananService';
 import { getErrorMessage } from '../../../lib/errors';
+import { formatDurasi } from '../../../lib/waktu';
 import { formatTanggal, openReceiptWindow, writePengembalianReceipt } from '../../../lib/receipt';
-import { INVENTORY_STATUSES, type InventoryRow } from '../../../types/inventory';
+import { INVENTORY_STATUSES, type InventoryKelengkapan, type InventoryRow } from '../../../types/inventory';
 import type { RiwayatRow } from '../../../types/peminjaman';
 import { HASIL_PENANGANAN, STATUS_PENANGANAN, type Penanganan } from '../../../types/penanganan';
 
@@ -20,10 +23,16 @@ interface InventoryDetailModalProps {
   onReturn: (row: InventoryRow) => void;
   onLink: (row: InventoryRow) => void;
   onReport: (row: InventoryRow) => void;
+  onSell: (row: InventoryRow) => void;
 }
 
 const sectionTitle = 'text-[11px] font-semibold uppercase tracking-wider text-ink-muted';
 const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40';
+
+// tiap daftar di modal ini (kelengkapan, riwayat peminjaman, riwayat perbaikan) maksimal 5 baris per halaman
+const PER_PAGE = 5;
+const pageCountOf = (total: number) => Math.max(1, Math.ceil(total / PER_PAGE));
+const pageSlice = <T,>(items: T[], page: number): T[] => items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
 // 'YYYY-MM-DD' (atau datetime) -> '1 Jul 2026', kosong -> '-'
 const tgl = (v: string | null | undefined) => (v ? formatTanggal(v.slice(0, 10)) : '-');
@@ -51,13 +60,20 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // modal "Detail inventory": info barang, aksi cepat, pengadaan, riwayat pemakai & peminjaman, riwayat perbaikan
-export default function InventoryDetailModal({ open, inventory, onClose, onHandover, onReturn, onLink, onReport }: InventoryDetailModalProps) {
+export default function InventoryDetailModal({ open, inventory, onClose, onHandover, onReturn, onLink, onReport, onSell }: InventoryDetailModalProps) {
   const [rows, setRows] = useState<RiwayatRow[] | null>(null);
   const [perbaikan, setPerbaikan] = useState<Penanganan[] | null>(null);
   const [perbaikanError, setPerbaikanError] = useState('');
   const [error, setError] = useState('');
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedPerbaikanId, setExpandedPerbaikanId] = useState<number | null>(null); // riwayat perbaikan yang dibuka
+  const [kelengkapan, setKelengkapan] = useState<InventoryKelengkapan[] | null>(null);
+  const [kelengkapanError, setKelengkapanError] = useState('');
+  // halaman aktif tiap daftar (dari 1); kembali ke 1 setiap modal dibuka
+  const [pageKelengkapan, setPageKelengkapan] = useState(1);
+  const [pageRiwayat, setPageRiwayat] = useState(1);
+  const [pagePerbaikan, setPagePerbaikan] = useState(1);
 
   // muat riwayat tiap modal dibuka
   useEffect(() => {
@@ -66,6 +82,7 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
     setRows(null);
     setError('');
     setExpandedId(null);
+    setPageRiwayat(1);
     peminjamanService
       .riwayat(inventory.id)
       .then((res) => { if (!ignore) setRows(res); })
@@ -79,10 +96,30 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
     let ignore = false;
     setPerbaikan(null);
     setPerbaikanError('');
+    setExpandedPerbaikanId(null);
+    setPagePerbaikan(1);
     penangananService
       .riwayat(inventory.id)
       .then((res) => { if (!ignore) setPerbaikan(res); })
       .catch((err) => { if (!ignore) setPerbaikanError(getErrorMessage(err)); });
+    return () => { ignore = true; };
+  }, [open, inventory]);
+
+  // muat kelengkapan yang terpasang tiap modal dibuka (hanya barang utama; kelengkapan sendiri tidak punya kelengkapan)
+  useEffect(() => {
+    if (!open || !inventory) return;
+    let ignore = false;
+    setKelengkapan(null);
+    setKelengkapanError('');
+    setPageKelengkapan(1);
+    if (inventory.parent_id != null) {
+      setKelengkapan([]);
+      return;
+    }
+    inventoryService
+      .kelengkapan(inventory.id)
+      .then((res) => { if (!ignore) setKelengkapan(res); })
+      .catch((err) => { if (!ignore) setKelengkapanError(getErrorMessage(err)); });
     return () => { ignore = true; };
   }, [open, inventory]);
 
@@ -118,6 +155,9 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
   const canReturn = !!inventory && !isChild && inventory.status === 'dipinjam';
   // tersedia maupun dipinjam boleh dilaporkan; status lain berarti sudah dilaporkan / diperbaiki / rusak berat / dijual
   const canReport = !!inventory && (inventory.status === 'tersedia' || inventory.status === 'dipinjam');
+  // dijual = terkunci (tidak bisa di-link lagi); jual hanya untuk Rusak Berat yang tidak punya kelengkapan nempel dan bukan kelengkapan
+  const isSold = inventory?.status === 'dijual';
+  const canSell = !!inventory && inventory.status === 'rusak_berat' && !isChild && !isParent;
 
   return (
     <Modal
@@ -182,15 +222,31 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
             <button
               type="button"
               className={btnOutline}
-              disabled={!isChild && isParent}
-              title={!isChild && isParent ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain' : undefined}
+              disabled={isSold || (!isChild && isParent)}
+              title={
+                isSold ? 'Inventory yang sudah dijual terkunci'
+                  : !isChild && isParent ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain'
+                    : undefined
+              }
               onClick={() => act(onLink)}
             >
               {isChild ? <Unlink size={14} /> : <Link2 size={14} />}
               {isChild ? 'Lepas dari Induk' : 'Pasang ke Induk'}
             </button>
 
-            <button type="button" className={btnOutline} disabled title="Belum tersedia">
+            <button
+              type="button"
+              className={btnOutline}
+              disabled={!canSell}
+              title={
+                isSold ? 'Inventory ini sudah dijual'
+                  : inventory.status !== 'rusak_berat' ? 'Hanya inventory berstatus Rusak Berat yang bisa dijual'
+                    : isChild ? 'Masih jadi kelengkapan, lepas link dulu sebelum dijual'
+                      : isParent ? 'Masih ada kelengkapan yang terpasang, lepas link semuanya dulu sebelum dijual'
+                        : undefined
+              }
+              onClick={() => act(onSell)}
+            >
               <Tag size={14} />Jual Inventory
             </button>
           </div>
@@ -208,6 +264,47 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
             </dl>
           </section>
 
+          {/* kelengkapan yang terpasang (hanya untuk barang utama) */}
+          {!isChild && (
+            <section>
+              <div className="mb-1 flex items-center justify-between">
+                <h3 className={sectionTitle}>Kelengkapan Terpasang</h3>
+                {kelengkapan && <span className="text-[11px] text-ink-muted">{kelengkapan.length} kelengkapan</span>}
+              </div>
+
+              {kelengkapanError && <p className="mb-2 rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{kelengkapanError}</p>}
+
+              {kelengkapan === null && !kelengkapanError && (
+                <p className="flex items-center gap-2 border-t border-line pt-3 text-xs text-ink-muted"><Loader2 size={14} className="animate-spin" />Memuat kelengkapan…</p>
+              )}
+
+              {kelengkapan?.length === 0 && <p className="border-t border-line pt-3 text-xs italic text-ink-muted">Belum ada kelengkapan yang terpasang.</p>}
+
+              <ul>
+                {kelengkapan && pageSlice(kelengkapan, pageKelengkapan).map((k) => {
+                  const st = INVENTORY_STATUSES.find((s) => s.key === k.status);
+                  return (
+                    <li key={k.id} className="flex items-center justify-between gap-3 border-t border-line py-2.5 text-xs">
+                      <p className="min-w-0 flex-1 truncate">
+                        <span className="font-semibold text-ink">{k.kode_inventory}</span>
+                        <span className="text-ink-soft">
+                          {' '}— {k.nama ?? '-'}
+                          {[k.merk, k.type].filter(Boolean).length > 0 && ` · ${[k.merk, k.type].filter(Boolean).join(' ')}`}
+                          {k.serial_number && ` · SN ${k.serial_number}`}
+                        </span>
+                      </p>
+                      <Badge dot={st?.dot ?? 'bg-ink-muted'}>{st?.label ?? k.status}</Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {kelengkapan && kelengkapan.length > PER_PAGE && (
+                <Pagination page={pageKelengkapan} pageCount={pageCountOf(kelengkapan.length)} onPageChange={setPageKelengkapan} className="border-t border-line pt-3" />
+              )}
+            </section>
+          )}
+
           {/* riwayat pemakai & peminjaman */}
           <section>
             <div className="mb-1 flex items-center justify-between">
@@ -224,7 +321,7 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
             {rows?.length === 0 && <p className="border-t border-line pt-3 text-xs italic text-ink-muted">Belum pernah dipinjam.</p>}
 
             <ul>
-              {rows?.map((r) => {
+              {rows && pageSlice(rows, pageRiwayat).map((r) => {
                 const expanded = expandedId === r.id;
                 return (
                   <li key={r.id} className="border-t border-line py-2.5 text-xs">
@@ -296,6 +393,10 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
                 );
               })}
             </ul>
+
+            {rows && rows.length > PER_PAGE && (
+              <Pagination page={pageRiwayat} pageCount={pageCountOf(rows.length)} onPageChange={setPageRiwayat} className="border-t border-line pt-3" />
+            )}
           </section>
 
           {/* riwayat perbaikan & kerusakan */}
@@ -314,59 +415,89 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
             {perbaikan?.length === 0 && <p className="border-t border-line pt-3 text-xs italic text-ink-muted">Belum ada riwayat perbaikan.</p>}
 
             <ul>
-              {perbaikan?.map((p) => {
+              {perbaikan && pageSlice(perbaikan, pagePerbaikan).map((p) => {
                 const st = STATUS_PENANGANAN.find((x) => x.key === p.status);
                 const hasil = HASIL_PENANGANAN.find((h) => h.key === p.hasil)?.label;
+                const expanded = expandedPerbaikanId === p.id;
                 return (
-                  <li key={p.id} className="flex gap-3 border-t border-line py-2.5 text-xs">
-                    <a href={p.foto_url} target="_blank" rel="noreferrer" className="shrink-0" title="Lihat foto kerusakan">
-                      <img src={p.foto_url} alt="Foto kerusakan" className="size-14 rounded-lg border border-line object-cover" />
-                    </a>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <p className="flex flex-wrap items-center gap-2">
+                  <li key={p.id} className="border-t border-line py-2.5 text-xs">
+                    {/* baris ringkas: jenis kerusakan, status, waktu lapor; ikon mata membuka rinciannya */}
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                         <span className="font-semibold text-ink">{p.jenis_label}</span>
                         <Badge dot={st?.dot ?? 'bg-ink-muted'}>{st?.label ?? p.status}</Badge>
+                        <span className="text-ink-soft">{tglJam(p.tanggal_lapor, p.lapor_at)}</span>
                       </p>
-                      <p className="text-ink-soft">{p.keluhan}</p>
-                      <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-0.5 text-ink-soft">
-                        <dt>Dilaporkan</dt>
-                        <dd className="text-ink">{tglJam(p.tanggal_lapor, p.lapor_at)}{p.pelapor ? ` · ${p.pelapor}` : ''}</dd>
-
-                        {p.tanggal_diterima && (
-                          <>
-                            <dt>Diterima</dt>
-                            <dd className="text-ink">{tglJam(p.tanggal_diterima, p.diterima_at)}{p.penerima ? ` · ${p.penerima}` : ''}</dd>
-                          </>
-                        )}
-
-                        {p.no_struk && (
-                          <>
-                            <dt>No. struk</dt>
-                            <dd className="text-ink">{p.no_struk}</dd>
-                          </>
-                        )}
-
-                        {p.tanggal_selesai && (
-                          <>
-                            <dt>Selesai</dt>
-                            <dd className="text-ink">{tglJam(p.tanggal_selesai, p.selesai_at)}{hasil ? ` · ${hasil}` : ''}</dd>
-                            <dt>Biaya</dt>
-                            <dd className="text-ink">Jasa {rupiah(p.harga_jasa)} · Komponen {rupiah(p.biaya_komponen)}</dd>
-                          </>
-                        )}
-
-                        {p.catatan && (
-                          <>
-                            <dt>Catatan</dt>
-                            <dd className="text-ink">{p.catatan}</dd>
-                          </>
-                        )}
-                      </dl>
+                      <button
+                        type="button"
+                        aria-label="Lihat detail perbaikan"
+                        title="Lihat detail perbaikan"
+                        aria-pressed={expanded}
+                        className={`${iconBtn} ${expanded ? 'bg-hover text-ink' : ''}`}
+                        onClick={() => setExpandedPerbaikanId(expanded ? null : p.id)}
+                      >
+                        <Eye size={14} />
+                      </button>
                     </div>
+
+                    {expanded && (
+                      <div className="mt-2 flex gap-3 rounded-lg bg-hover px-3 py-2.5">
+                        <a href={p.foto_url} target="_blank" rel="noreferrer" className="shrink-0" title="Lihat foto kerusakan">
+                          <img src={p.foto_url} alt="Foto kerusakan" className="size-16 rounded-lg border border-line object-cover" />
+                        </a>
+                        <dl className="grid min-w-0 flex-1 grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-ink-soft">
+                          <dt>Keluhan</dt>
+                          <dd className="break-words text-ink">{p.keluhan}</dd>
+
+                          <dt>Dilaporkan</dt>
+                          <dd className="text-ink">{tglJam(p.tanggal_lapor, p.lapor_at)}{p.pelapor ? ` · ${p.pelapor}` : ''}</dd>
+
+                          {p.tanggal_diterima && (
+                            <>
+                              <dt>Diterima</dt>
+                              <dd className="text-ink">{tglJam(p.tanggal_diterima, p.diterima_at)}{p.penerima ? ` · ${p.penerima}` : ''}</dd>
+                            </>
+                          )}
+
+                          {p.no_struk && (
+                            <>
+                              <dt>No. struk</dt>
+                              <dd className="text-ink">{p.no_struk}</dd>
+                            </>
+                          )}
+
+                          {p.tanggal_selesai && (
+                            <>
+                              <dt>Selesai</dt>
+                              <dd className="text-ink">{tglJam(p.tanggal_selesai, p.selesai_at)}{hasil ? ` · ${hasil}` : ''}</dd>
+                              {p.diterima_at && p.selesai_at && (
+                                <>
+                                  <dt>Durasi</dt>
+                                  <dd className="text-ink">{formatDurasi(p.diterima_at, p.selesai_at)}</dd>
+                                </>
+                              )}
+                              <dt>Biaya</dt>
+                              <dd className="text-ink">Jasa {rupiah(p.harga_jasa)} · Komponen {rupiah(p.biaya_komponen)}</dd>
+                            </>
+                          )}
+
+                          {p.catatan && (
+                            <>
+                              <dt>Catatan</dt>
+                              <dd className="break-words text-ink">{p.catatan}</dd>
+                            </>
+                          )}
+                        </dl>
+                      </div>
+                    )}
                   </li>
                 );
               })}
             </ul>
+
+            {perbaikan && perbaikan.length > PER_PAGE && (
+              <Pagination page={pagePerbaikan} pageCount={pageCountOf(perbaikan.length)} onPageChange={setPagePerbaikan} className="border-t border-line pt-3" />
+            )}
           </section>
         </div>
       )}

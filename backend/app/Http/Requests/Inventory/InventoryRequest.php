@@ -29,7 +29,8 @@ class InventoryRequest extends FormRequest
                 // ubah: pakai aturan link yang sama dengan tombol Link; tambah: barang utama tidak boleh sudah jadi kelengkapan
                 $error = $current
                     ? $current->linkError($parent)
-                    : ($parent->parent_id !== null ? 'Inventory tujuan sudah jadi kelengkapan dari inventory lain, jadi tidak bisa dijadikan barang utama.' : null);
+                    : ($parent->parent_id !== null ? 'Inventory tujuan sudah jadi kelengkapan dari inventory lain, jadi tidak bisa dijadikan barang utama.'
+                        : ($parent->status === 'dijual' ? 'Inventory tujuan sudah dijual, jadi tidak bisa dijadikan barang utama.' : null));
 
                 if ($error) {
                     $fail($error);

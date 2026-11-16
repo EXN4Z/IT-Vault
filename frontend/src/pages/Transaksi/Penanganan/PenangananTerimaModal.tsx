@@ -1,12 +1,13 @@
 import { useId, useState, type FormEvent } from 'react';
-import { CalendarDays, Loader2 } from 'lucide-react';
+import { CalendarDays, ExternalLink, Loader2, Wrench } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
+import Badge from '../../../components/ui/Badge';
 import { DatePicker, FormField } from '../../../components/form';
 import { btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
 import { penangananService } from '../../../services/penangananService';
 import { getErrorMessage, getFieldErrors } from '../../../lib/errors';
-import { today } from '../../../lib/waktu';
-import type { Penanganan } from '../../../types/penanganan';
+import { today, tglJam } from '../../../lib/waktu';
+import { STATUS_PENANGANAN, type Penanganan } from '../../../types/penanganan';
 
 interface PenangananTerimaModalProps {
   open: boolean;
@@ -15,8 +16,11 @@ interface PenangananTerimaModalProps {
   onSaved: () => void; // dipanggil begitu laporan diterima (untuk memuat ulang tabel)
 }
 
-// modal "Terima laporan": pilih tanggal diterima. Penerima (admin yang login) dan jamnya dicatat server;
-// status barang otomatis jadi Sedang Diperbaiki
+const sectionTitle = 'text-[11px] font-semibold uppercase tracking-wider text-ink-muted';
+const rowClass = 'flex items-start justify-between gap-4 border-t border-line py-2 text-xs';
+
+// modal "Terima laporan": detail laporan (foto, keluhan, data barang, pelapor) + pilih tanggal diterima.
+// Penerima (admin yang login) dan jamnya dicatat server; status barang otomatis jadi Sedang Diperbaiki
 export default function PenangananTerimaModal({ open, penanganan, onClose, onSaved }: PenangananTerimaModalProps) {
   const formId = useId();
   const [tanggal, setTanggal] = useState(today);
@@ -60,33 +64,92 @@ export default function PenangananTerimaModal({ open, penanganan, onClose, onSav
     }
   };
 
-  const barang = penanganan?.inventory;
-  const subtitle = barang ? `${barang.kode_inventory}${barang.nama ? ` - ${barang.nama}` : ''}` : undefined;
+  const p = penanganan;
+  const barang = p?.inventory;
+  const status = p ? STATUS_PENANGANAN.find((s) => s.key === p.status) : undefined;
+
+  // baris "Data Barang" (label, nilai)
+  const dataBarang: [string, string][] = [
+    ['Kode inventory', barang?.kode_inventory ?? '-'],
+    ['Nama unit', barang?.nama ?? '-'],
+    ['Merk & tipe', [barang?.merk, barang?.type].filter(Boolean).join(' · ') || '-'],
+    ['Serial number', barang?.serial_number ?? '-'],
+    ['Warna', barang?.warna ?? '-'],
+    ['Status sebelum dilapor', p ? p.status_sebelum.replace(/_/g, ' ') : '-'],
+  ];
 
   return (
     <Modal
       open={open}
       onClose={() => { if (!saving) onClose(); }}
       title="Terima laporan"
-      description={subtitle}
+      eyebrow={p ? [barang?.kode_inventory, p.jenis_label].filter(Boolean).join(' · ') : undefined}
+      titleExtra={p && <Badge dot={status?.dot ?? 'bg-ink-muted'}>{status?.label ?? p.status}</Badge>}
+      size="lg"
       footer={
         <>
           <button type="button" className={btnOutline} onClick={onClose} disabled={saving}>Batal</button>
-          <button type="submit" form={formId} className={btnSolid} disabled={saving || !penanganan}>
+          <button type="submit" form={formId} className={btnSolid} disabled={saving || !p}>
             {saving && <Loader2 size={14} className="animate-spin" />}
             Terima untuk Diperbaiki
           </button>
         </>
       }
     >
-      <form id={formId} onSubmit={submit} className="flex flex-col gap-3">
+      <form id={formId} onSubmit={submit} className="flex flex-col gap-5">
         {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
 
-        {penanganan && (
-          <div className="rounded-lg bg-hover px-3 py-2.5 text-xs text-ink-soft">
-            <p><span className="font-semibold text-ink">{penanganan.jenis_label}</span>{penanganan.pelapor ? ` · dilaporkan ${penanganan.pelapor}` : ''}</p>
-            <p className="mt-1 whitespace-pre-wrap break-words">{penanganan.keluhan}</p>
-          </div>
+        {p && (
+          <>
+            {/* foto kerusakan + keluhan */}
+            <div className="flex gap-4">
+              <a
+                href={p.foto_url}
+                target="_blank"
+                rel="noreferrer"
+                title="Buka foto ukuran penuh"
+                className="group relative block h-36 w-48 shrink-0 overflow-hidden rounded-lg border border-line bg-field"
+              >
+                <img src={p.foto_url} alt="Foto kerusakan" className="size-full object-cover" />
+                <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white opacity-90 transition group-hover:opacity-100">
+                  <ExternalLink size={10} />Perbesar
+                </span>
+              </a>
+              <div className="min-w-0 flex-1">
+                <h3 className={`${sectionTitle} mb-1 flex items-center gap-1.5`}><Wrench size={12} />Keluhan</h3>
+                <p className="whitespace-pre-wrap break-words rounded-lg bg-hover px-3 py-2.5 text-xs text-ink">{p.keluhan}</p>
+                <p className="mt-2 text-[11px] text-ink-muted">Jenis kerusakan: <span className="font-semibold text-ink-soft">{p.jenis_label}</span></p>
+              </div>
+            </div>
+
+            {/* data barang */}
+            <section>
+              <h3 className={`${sectionTitle} mb-1`}>Data Barang</h3>
+              <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+                {dataBarang.map(([label, nilai]) => (
+                  <div key={label} className={rowClass}>
+                    <dt className="shrink-0 text-ink-soft">{label}</dt>
+                    <dd className="min-w-0 break-words text-right font-semibold text-ink">{nilai}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+
+            {/* info laporan */}
+            <section>
+              <h3 className={`${sectionTitle} mb-1`}>Dilaporkan</h3>
+              <dl>
+                <div className={rowClass}>
+                  <dt className="shrink-0 text-ink-soft">Waktu</dt>
+                  <dd className="min-w-0 break-words text-right font-semibold text-ink">{tglJam(p.tanggal_lapor, p.lapor_at)}</dd>
+                </div>
+                <div className={rowClass}>
+                  <dt className="shrink-0 text-ink-soft">Pelapor</dt>
+                  <dd className="min-w-0 break-words text-right font-semibold text-ink">{p.pelapor ?? '-'}</dd>
+                </div>
+              </dl>
+            </section>
+          </>
         )}
 
         <FormField label="Tanggal Diterima" required icon={CalendarDays} error={errors.tanggal_diterima}>

@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\InventoryRequest;
 use App\Models\Inventory;
 use App\Models\Kategori;
+use App\Models\Peminjaman;
 use App\Models\Perusahaan;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
@@ -52,8 +54,8 @@ class InventoryController extends Controller
             'kategori' => Kategori::orderBy('nama')->get(['id', 'nama']),
             'perusahaan' => Perusahaan::orderBy('nama')->get(['id', 'nama']),
             'supplier' => Supplier::orderBy('nama')->get(['id', 'nama']),
-            // hanya yang belum jadi kelengkapan, karena kelengkapan tidak boleh jadi barang utama
-            'inventory' => Inventory::whereNull('parent_id')->orderBy('kode_inventory')->get(['id', 'kode_inventory', 'nama']),
+            // hanya yang belum jadi kelengkapan (kelengkapan tidak boleh jadi barang utama) dan belum dijual
+            'inventory' => Inventory::whereNull('parent_id')->where('status', '!=', 'dijual')->orderBy('kode_inventory')->get(['id', 'kode_inventory', 'nama']),
         ]);
     }
 
@@ -66,6 +68,7 @@ class InventoryController extends Controller
         $data = Inventory::query()
             ->whereKeyNot($inventory->id)
             ->whereNull('parent_id')
+            ->where('status', '!=', 'dijual') // yang sudah dijual tidak bisa jadi barang utama
             ->when($search !== '', function ($q) use ($search) {
                 $like = '%'.$search.'%';
 
@@ -97,6 +100,7 @@ class InventoryController extends Controller
 
         $parent = Inventory::findOrFail($validated['parent_id']);
 
+        // linkError sudah menolak kalau inventory ini atau barang utamanya sudah dijual
         $error = $inventory->linkError($parent);
         if ($error) {
             throw ValidationException::withMessages(['parent_id' => $error]);
@@ -111,9 +115,65 @@ class InventoryController extends Controller
     // DELETE /inventory/{inventory}/link -> lepas dari barang utamanya
     public function unlink(Inventory $inventory): JsonResponse
     {
+        $this->ensureTidakTerkunci($inventory);
+
         $inventory->update(['parent_id' => null]);
 
         return response()->json($inventory->load(self::WITH)->loadCount('children'));
+    }
+
+    // GET /inventory/{inventory}/kelengkapan -> kelengkapan yang sedang terpasang di barang utama ini (untuk modal Detail)
+    public function kelengkapan(Inventory $inventory): JsonResponse
+    {
+        return response()->json(
+            $inventory->children()
+                ->orderBy('kode_inventory')
+                ->get(['id', 'kode_inventory', 'nama', 'merk', 'type', 'serial_number', 'status'])
+        );
+    }
+
+    // POST /inventory/{inventory}/jual -> jual inventory: status jadi dijual, datanya tetap ada tapi terkunci.
+    // Syarat: status Rusak Berat dan tidak ada kelengkapan yang masih nempel (lepas link dulu).
+    // Tidak ada kaitan dengan write-off; ini murni perubahan status.
+    public function jual(Request $request, Inventory $inventory): JsonResponse
+    {
+        DB::transaction(function () use ($request, $inventory) {
+            // kunci barangnya lalu cek ulang, supaya dua admin tidak menjual (atau melepas link) bersamaan
+            $locked = Inventory::lockForUpdate()->findOrFail($inventory->id);
+
+            $error = $locked->jualError();
+            if ($error) {
+                throw ValidationException::withMessages(['inventory' => $error]);
+            }
+
+            // barang yang rusak berat saat dipinjam masih tercatat dipegang peminjamnya dan tombol Kembalikan
+            // tidak bisa dipakai lagi (hanya menerima status Dipinjam), jadi peminjaman ditutup di sini
+            $peminjaman = Peminjaman::aktif()->where('inventory_id', $locked->id)->latest('id')->first();
+
+            if ($peminjaman) {
+                $peminjaman->update([
+                    'tanggal_pengembalian' => now()->toDateString(),
+                    'waktu_pengembalian' => now(),
+                    'kondisi_kembali' => 'rusak_berat',
+                    'catatan_kembali' => 'Ditutup otomatis karena barang dijual',
+                    'dikembalikan_oleh' => $request->user()->id,
+                ]);
+            }
+
+            $locked->update(['status' => 'dijual', 'peminjam_id' => null]);
+        });
+
+        return response()->json($inventory->refresh()->load(self::WITH)->loadCount('children'));
+    }
+
+    // inventory yang sudah dijual terkunci (tidak bisa diubah, dihapus, atau di-link lagi)
+    private function ensureTidakTerkunci(Inventory $inventory): void
+    {
+        $error = $inventory->terkunciError();
+
+        if ($error) {
+            throw ValidationException::withMessages(['inventory' => $error]);
+        }
     }
 
     // POST /inventory
@@ -128,6 +188,8 @@ class InventoryController extends Controller
     // PUT /inventory/{inventory}
     public function update(InventoryRequest $request, Inventory $inventory): JsonResponse
     {
+        $this->ensureTidakTerkunci($inventory);
+
         $inventory->update($request->validated());
 
         return response()->json($inventory->load(self::WITH));
@@ -136,6 +198,8 @@ class InventoryController extends Controller
     // DELETE /inventory/{inventory}
     public function destroy(Inventory $inventory): Response
     {
+        $this->ensureTidakTerkunci($inventory);
+
         // barang yang sedang dipinjam (juga kelengkapannya) harus dikembalikan dulu
         if ($inventory->status === 'dipinjam') {
             throw ValidationException::withMessages([
