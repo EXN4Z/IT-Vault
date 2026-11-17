@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Barcode, Hash, Layers, Loader2, Package, Palette, Tag, Truck, Building2, FileText } from 'lucide-react';
+import { Hash, Layers, Loader2, Package, Palette, Tag, Truck, Building2, FileText } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
 import FormField, { inputClass, textareaClass } from '../../../components/form/FormField';
 import ComboBox, { type ComboboxOption } from '../../../components/form/ComboBox';
@@ -202,31 +202,31 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
           <p className="col-span-2 rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>
         )}
 
-        <FormField label="Nama" icon={Package} error={errors.nama} className="col-span-2">
+        <FormField label="Nama" error={errors.nama} className="col-span-2">
           <input {...bind('nama')} placeholder="Nama inventory" className={inputClass} />
         </FormField>
 
-        <FormField label="Kategori" required icon={Layers} error={errors.kategori_id} className="col-span-2">
+        <FormField label="Kategori" required error={errors.kategori_id} className="col-span-2">
           <ComboBox options={opts.kategori} value={form.kategori_id} onChange={setField('kategori_id')} placeholder="Pilih kategori" searchPlaceholder="Cari kategori..." />
         </FormField>
 
-        <FormField label="Merk" icon={Tag} error={errors.merk}>
+        <FormField label="Merk" error={errors.merk}>
           <input {...bind('merk')} placeholder="Merk" className={inputClass} />
         </FormField>
 
-        <FormField label="Type" icon={Tag} error={errors.type}>
+        <FormField label="Type" error={errors.type}>
           <input {...bind('type')} placeholder="Type / model" className={inputClass} />
         </FormField>
 
-        <FormField label="Serial number" icon={Barcode} error={errors.serial_number}>
+        <FormField label="Serial number" error={errors.serial_number}>
           <input {...bind('serial_number')} placeholder="Serial number" className={inputClass} />
         </FormField>
 
-        <FormField label="Warna" icon={Palette} error={errors.warna}>
+        <FormField label="Warna" error={errors.warna}>
           <input {...bind('warna')} placeholder="Warna" className={inputClass} />
         </FormField>
 
-        <FormField label="Jumlah" required icon={Hash} error={errors.jumlah}>
+        <FormField label="Jumlah" required error={errors.jumlah}>
           <input {...bind('jumlah')} type="number" min={1} step={1} placeholder="1" className={inputClass} />
         </FormField>
 
@@ -234,11 +234,11 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
           <ComboBox options={opts.parent} value={form.parent_id} onChange={setField('parent_id')} placeholder="Tanpa barang utama" searchPlaceholder="Cari kode / nama..." clearable />
         </FormField>
 
-        <FormField label="Perusahaan" icon={Building2} error={errors.perusahaan_id}>
+        <FormField label="Perusahaan" error={errors.perusahaan_id}>
           <ComboBox options={opts.perusahaan} value={form.perusahaan_id} onChange={setField('perusahaan_id')} placeholder="Pilih perusahaan" searchPlaceholder="Cari perusahaan..." clearable />
         </FormField>
 
-        <FormField label="Supplier" icon={Truck} error={errors.supplier_id}>
+        <FormField label="Supplier" error={errors.supplier_id}>
           <ComboBox options={opts.supplier} value={form.supplier_id} onChange={setField('supplier_id')} placeholder="Pilih supplier" searchPlaceholder="Cari supplier..." clearable />
         </FormField>
 
@@ -259,11 +259,11 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
           />
         </FormField>
 
-        <FormField label="No. surat jalan" icon={FileText} error={errors.no_surat_jalan}>
+        <FormField label="No. surat jalan" error={errors.no_surat_jalan}>
           <input {...bind('no_surat_jalan')} placeholder="No. surat jalan" className={inputClass} />
         </FormField>
 
-        <FormField label="No. good receive" icon={FileText} error={errors.no_good_receive}>
+        <FormField label="No. good receive" error={errors.no_good_receive}>
           <input {...bind('no_good_receive')} placeholder="No. good receive" className={inputClass} />
         </FormField>
 

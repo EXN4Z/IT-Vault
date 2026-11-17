@@ -19,8 +19,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     // CRUD user: index, store, update, destroy
-    // /users/options harus di atas apiResource supaya tidak ditabrak route /users/{user}
+    // /users/options dan /users/export harus di atas apiResource supaya tidak ditabrak route /users/{user}
     Route::get('/users/options', [UserController::class, 'options']);
+    Route::get('/users/export', [UserController::class, 'export']);
     Route::apiResource('users', UserController::class)->except('show');
     Route::post('/users/import', [UserController::class, 'import']);
 

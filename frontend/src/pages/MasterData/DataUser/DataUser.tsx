@@ -9,12 +9,28 @@ import Modal from '../../../components/modal/Modal';
 import { btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
 import { userService, type UserImportResult } from '../../../services/userService';
 import { getErrorMessage } from '../../../lib/errors';
+import { saveBlob } from '../../../lib/downloadExport';
 import type { UserRow } from '../../../types/user';
 import DataUserFormModal from './DataUserFormModal';
 import ImportModal from '../../../components/modal/ImportModal';
+import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
 
 
 const PER_PAGE = 10;
+
+// kolom yang bisa dipilih di modal export (key = COLUMNS di UserExport.php)
+const EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'nik', label: 'NIK' },
+  { key: 'name', label: 'Nama' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Telepon' },
+  { key: 'role', label: 'Role' },
+  { key: 'perusahaan', label: 'Perusahaan' },
+  { key: 'cabang', label: 'Cabang' },
+  { key: 'departemen', label: 'Departemen' },
+  { key: 'tanggal_masuk', label: 'Tanggal Masuk' },
+  { key: 'status', label: 'Status' },
+];
 
 const TABS = [
   { key: 'semua', label: 'Semua', icon: Users },
@@ -45,6 +61,11 @@ export default function UsersPage() {
   const [importDetails, setImportDetails] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<UserImportResult | null>(null);
 
+  // export
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
   // modal tambah / ubah (`editing` sengaja tidak di-null-kan saat tutup supaya isi modal tidak berubah selama animasi)
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
@@ -66,6 +87,29 @@ export default function UsersPage() {
       return next;
     }, { replace: true });
     setPage(1);
+  };
+
+  const handleExport = async (opts: ExportOptions) => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const blob = await userService.export({
+        format: opts.format,
+        scope: opts.scope,
+        columns: opts.columns,
+        // tab, kata kunci, dan halaman yang tampil, supaya hasilnya sama persis dengan tabel
+        role: opts.scope === 'all' || tab === 'semua' ? undefined : tab,
+        search: opts.scope === 'all' ? undefined : search || undefined,
+        page: opts.scope === 'page' ? page : undefined,
+        per_page: opts.scope === 'page' ? PER_PAGE : undefined,
+      });
+      saveBlob(blob, `user-${new Date().toLocaleDateString('sv-SE')}.${opts.format}`);
+      setExportOpen(false);
+    } catch (err) {
+      setExportError(getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
   };
 
   const openImport = () => {
@@ -199,7 +243,7 @@ export default function UsersPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-soft">Kelola data user dan karyawan sistem, akun login, departemen, dan hak akses.</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={outline}><Download size={14} />Export Excel</button>
+          <button type="button" className={outline} onClick={() => { setExportError(''); setExportOpen(true); }}><Download size={14} />Export Excel</button>
           <button type="button" className={outline} onClick={openImport}><Upload size={14} />Import Excel</button>
           <button
             type="button"
@@ -280,6 +324,17 @@ export default function UsersPage() {
         loading={importing}
         error={importError}
         details={importDetails}
+      />
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title="Export user"
+        columns={EXPORT_COLUMNS}
+        total={total}
+        loading={exporting}
+        error={exportError}
+        onSubmit={handleExport}
       />
 
       <Modal
