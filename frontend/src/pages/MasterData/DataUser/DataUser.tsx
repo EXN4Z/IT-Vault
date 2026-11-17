@@ -6,7 +6,7 @@ import Badge from '../../../components/ui/Badge';
 import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
-import { btnCreate, btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
+import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
 import { userService, type UserImportResult } from '../../../services/userService';
 import { getErrorMessage } from '../../../lib/errors';
 import { saveBlob } from '../../../lib/downloadExport';

@@ -5,7 +5,7 @@ import SearchField from '../../../components/ui/SearchField';
 import Modal from '../../../components/modal/Modal';
 import ImportModal from '../../../components/modal/ImportModal';
 import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
-import { btnCreate, btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
+import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
 import { kategoriService } from '../../../services/kategoriService';
 import { transferService } from '../../../services/transferService';
 import { getErrorList, getErrorMessage } from '../../../lib/errors';
