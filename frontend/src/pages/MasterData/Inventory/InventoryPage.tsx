@@ -8,7 +8,7 @@ import Badge from '../../../components/ui/Badge';
 import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
-import { btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
+import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
 import { inventoryService, type InventoryImportResult  } from '../../../services/inventoryService';
 import { peminjamanService } from '../../../services/peminjamanService';
 import { getErrorMessage } from '../../../lib/errors';
@@ -435,7 +435,7 @@ export default function InventoryPage() {
           <button type="button" className={btnOutline} onClick={openExport}>
             <Download size={14} />Export
           </button>
-          <button type="button" className={btnSolid} onClick={openCreate}>
+          <button type="button" className={btnCreate} onClick={openCreate}>
             <Plus size={14} />Tambah Inventory
           </button>
         </div>

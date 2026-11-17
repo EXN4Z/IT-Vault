@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CircleCheck, Eye, Inbox, Loader2, Printer } from 'lucide-react';
+import { CircleCheck, Download, Eye, Inbox, Loader2, Printer, Upload } from 'lucide-react';
 import DataTable, { type Column } from '../../../components/ui/DataTable';
 import Badge from '../../../components/ui/Badge';
 import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
+import ImportModal from '../../../components/modal/ImportModal';
+import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
 import { ComboBox } from '../../../components/form';
+import { btnOutline } from '../../../components/ui/buttonStyles';
 import { penangananService } from '../../../services/penangananService';
-import { getErrorMessage } from '../../../lib/errors';
+import { transferService } from '../../../services/transferService';
+import { getErrorList, getErrorMessage } from '../../../lib/errors';
+import { saveBlob } from '../../../lib/downloadExport';
 import { openReceiptWindow, writePenangananReceipt } from '../../../lib/receipt';
 import { formatDurasi, rupiah, tglJam } from '../../../lib/waktu';
 import PenangananDetailModal from './PenangananDetailModal';
@@ -20,6 +25,24 @@ const BATAS_HARI = 7; // laporan yang belum diterima lebih dari ini ditandai ter
 
 // tombol ikon di kolom Aksi (sama dengan halaman Inventory)
 const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink';
+
+// kolom yang bisa dipilih di modal export (nanti harus sama dengan COLUMNS di export backend)
+const EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'kode', label: 'Kode Inventory' },
+  { key: 'nama', label: 'Nama Barang' },
+  { key: 'jenis', label: 'Jenis Kerusakan' },
+  { key: 'keluhan', label: 'Keluhan' },
+  { key: 'pelapor', label: 'Pelapor' },
+  { key: 'penerima', label: 'Penerima' },
+  { key: 'tanggal_lapor', label: 'Tanggal Lapor' },
+  { key: 'tanggal_diterima', label: 'Tanggal Diterima' },
+  { key: 'tanggal_selesai', label: 'Tanggal Selesai' },
+  { key: 'harga_jasa', label: 'Harga Jasa' },
+  { key: 'biaya_komponen', label: 'Biaya Komponen' },
+  { key: 'total_biaya', label: 'Total Biaya' },
+  { key: 'no_struk', label: 'No. Struk' },
+  { key: 'catatan', label: 'Catatan' },
+];
 
 const JENIS_OPTIONS = JENIS_KERUSAKAN.map((j) => ({ value: j.key, label: j.label }));
 
@@ -64,6 +87,15 @@ export default function PenangananPage() {
   const [selesaiOpen, setSelesaiOpen] = useState(false);
   const [selesaiTarget, setSelesaiTarget] = useState<Penanganan | null>(null);
 
+  // import / export (hanya di tab Berhasil Diperbaiki dan Rusak Berat)
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importDetails, setImportDetails] = useState<string[]>([]);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
   const [notice, setNotice] = useState(''); // pesan di atas tabel (mis. popup struk diblokir)
 
   const openSelesai = (p: Penanganan) => {
@@ -100,6 +132,61 @@ export default function PenangananPage() {
   const changeTab = (key: TabPenanganan) => {
     setParams({ status: key }, { replace: true });
     setPage(1);
+  };
+
+  const bisaTransfer = tab === 'berhasil' || tab === 'rusak_berat';
+
+  const openExport = () => {
+    setExportError('');
+    setExportOpen(true);
+  };
+
+  const handleExport = async (opts: ExportOptions) => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const blob = await transferService.export('/penanganan', {
+        format: opts.format,
+        scope: opts.scope,
+        columns: opts.columns,
+        status: tab, // export selalu sesuai tab yang sedang dibuka
+        jenis: opts.scope === 'all' ? undefined : jenis || undefined,
+        search: opts.scope === 'all' ? undefined : search || undefined,
+        page: opts.scope === 'page' ? page : undefined,
+        per_page: opts.scope === 'page' ? PER_PAGE : undefined,
+      });
+      saveBlob(blob, `penanganan-${tab}-${new Date().toLocaleDateString('sv-SE')}.${opts.format}`);
+      setExportOpen(false);
+    } catch (err) {
+      setExportError(getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const openImport = () => {
+    setImportError('');
+    setImportDetails([]);
+    setImportOpen(true);
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    setImportError('');
+    setImportDetails([]);
+    try {
+      await transferService.import('/penanganan', file);
+      setImportOpen(false);
+      if (page === 1) setReloadKey((k) => k + 1);
+      else setPage(1); // setPage sudah memicu muat ulang
+    } catch (err) {
+      const details = getErrorList(err, 'file');
+      // banyak pesan -> tampilkan sebagai daftar
+      setImportError(details.length > 1 ? 'Import dibatalkan. Perbaiki baris berikut lalu coba lagi.' : getErrorMessage(err));
+      setImportDetails(details.length > 1 ? details : []);
+    } finally {
+      setImporting(false);
+    }
   };
 
   // tunda pencarian 300ms setelah berhenti mengetik
@@ -210,6 +297,12 @@ export default function PenangananPage() {
             </Badge>
           )}
         </div>
+        {bisaTransfer && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={btnOutline} onClick={openExport}><Download size={14} />Export Excel</button>
+            <button type="button" className={btnOutline} onClick={openImport}><Upload size={14} />Import Excel</button>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -253,6 +346,30 @@ export default function PenangananPage() {
           pagination={{ page, pageCount, onPageChange: setPage }}
         />
       </div>
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import penanganan"
+        description={`Unggah file Excel/CSV data penanganan (${label}).`}
+        requiredColumns={['Kode Inventory']}
+        onSubmit={handleImport}
+        loading={importing}
+        error={importError}
+        details={importDetails}
+      />
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title="Export penanganan"
+        description={`Pilih format dan data tab ${label} yang ingin diunduh.`}
+        columns={EXPORT_COLUMNS}
+        total={total}
+        loading={exporting}
+        error={exportError}
+        onSubmit={handleExport}
+      />
 
       <PenangananDetailModal open={detailOpen} penanganan={detailTarget} onClose={() => setDetailOpen(false)} />
 

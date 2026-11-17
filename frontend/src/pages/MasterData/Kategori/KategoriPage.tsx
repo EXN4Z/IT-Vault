@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Download, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import DataTable, { type Column } from '../../../components/ui/DataTable';
 import SearchField from '../../../components/ui/SearchField';
 import Modal from '../../../components/modal/Modal';
-import { btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
+import ImportModal from '../../../components/modal/ImportModal';
+import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
+import { btnCreate, btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
 import { kategoriService } from '../../../services/kategoriService';
-import { getErrorMessage } from '../../../lib/errors';
+import { transferService } from '../../../services/transferService';
+import { getErrorList, getErrorMessage } from '../../../lib/errors';
+import { saveBlob } from '../../../lib/downloadExport';
 import type { Kategori } from '../../../types/kategori';
 import KategoriFormModal from './KategoriFormModal';
 
 const PER_PAGE = 10;
+
+// kolom yang bisa dipilih di modal export (nanti harus sama dengan COLUMNS di export backend)
+const EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'nama', label: 'Nama' },
+];
 
 const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink';
 
@@ -23,6 +32,17 @@ export default function KategoriPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0); // naikkan untuk memuat ulang tabel
+
+  // import
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importDetails, setImportDetails] = useState<string[]>([]);
+
+  // export
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   // modal tambah / ubah (`editing` sengaja tidak di-null-kan saat tutup supaya isi modal tidak berubah selama animasi)
   const [formOpen, setFormOpen] = useState(false);
@@ -76,6 +96,57 @@ export default function KategoriPage() {
     setReloadKey((k) => k + 1);
   };
 
+  const openExport = () => {
+    setExportError('');
+    setExportOpen(true);
+  };
+
+  const handleExport = async (opts: ExportOptions) => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const blob = await transferService.export('/kategori', {
+        format: opts.format,
+        scope: opts.scope,
+        columns: opts.columns,
+        search: opts.scope === 'all' ? undefined : search || undefined,
+        page: opts.scope === 'page' ? page : undefined,
+        per_page: opts.scope === 'page' ? PER_PAGE : undefined,
+      });
+      saveBlob(blob, `kategori-${new Date().toLocaleDateString('sv-SE')}.${opts.format}`);
+      setExportOpen(false);
+    } catch (err) {
+      setExportError(getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const openImport = () => {
+    setImportError('');
+    setImportDetails([]);
+    setImportOpen(true);
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    setImportError('');
+    setImportDetails([]);
+    try {
+      await transferService.import('/kategori', file);
+      setImportOpen(false);
+      if (page === 1) setReloadKey((k) => k + 1);
+      else setPage(1); // setPage sudah memicu muat ulang
+    } catch (err) {
+      const details = getErrorList(err, 'file');
+      // banyak pesan -> tampilkan sebagai daftar
+      setImportError(details.length > 1 ? 'Import dibatalkan. Perbaiki baris berikut lalu coba lagi.' : getErrorMessage(err));
+      setImportDetails(details.length > 1 ? details : []);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const openDelete = (row: Kategori) => {
     setDeleteTarget(row);
     setDeleteError('');
@@ -116,9 +187,13 @@ export default function KategoriPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-soft">Kelola data kategori.</p>
-        <button type="button" className={btnSolid} onClick={openCreate}>
-          <Plus size={14} />Tambah Kategori
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={btnOutline} onClick={openExport}><Download size={14} />Export Excel</button>
+          <button type="button" className={btnOutline} onClick={openImport}><Upload size={14} />Import Excel</button>
+          <button type="button" className={btnCreate} onClick={openCreate}>
+            <Plus size={14} />Tambah Kategori
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -149,6 +224,29 @@ export default function KategoriPage() {
         kategori={editing}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
+      />
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import kategori"
+        description="Unggah file Excel/CSV data kategori."
+        requiredColumns={['Nama']}
+        onSubmit={handleImport}
+        loading={importing}
+        error={importError}
+        details={importDetails}
+      />
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title="Export kategori"
+        columns={EXPORT_COLUMNS}
+        total={total}
+        loading={exporting}
+        error={exportError}
+        onSubmit={handleExport}
       />
 
       <Modal
