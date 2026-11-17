@@ -206,7 +206,7 @@ class UserImport implements ToCollection, WithCalculatedFormulas
             'role_id'       => $this->idDariNama(Role::class, $this->nilai($row['role'] ?? null)),
             'perusahaan_id' => $this->idDariNama(Perusahaan::class, $this->nilai($row['perusahaan'] ?? null)),
             'cabang_id'     => $this->idDariNama(Cabang::class, $this->nilai($row['cabang'] ?? $row['lokasi_kantor'] ?? null)),
-            'departemen_id' => $this->idDariNama(Departemen::class, $this->nilai($row['departemen'] ?? null)),
+            'departemen_id' => $this->idDariNama(Departemen::class, $this->nilai($row['departemen'] ?? null), true),
         ], fn ($v) => $v !== null); // kolom kosong = tidak mengubah data yang sudah ada
 
         if ($user) {
@@ -235,7 +235,7 @@ class UserImport implements ToCollection, WithCalculatedFormulas
         $this->ditambahkan++;
     }
 
-    private function idDariNama(string $model, ?string $nama): ?int
+    private function idDariNama(string $model, ?string $nama, bool $buatJikaBelumAda = false): ?int
     {
         if ($nama === null) {
             return null;
@@ -244,7 +244,13 @@ class UserImport implements ToCollection, WithCalculatedFormulas
         $kunci = $model . '|' . strtolower($nama);
 
         if (!array_key_exists($kunci, $this->cache)) {
-            $this->cache[$kunci] = $model::whereRaw('LOWER(nama) = ?', [strtolower($nama)])->value('id');
+            $id = $model::whereRaw('LOWER(nama) = ?', [strtolower($nama)])->value('id');
+
+            if ($id === null && $buatJikaBelumAda) {
+                $id = $model::create(['nama' => $nama])->id;
+            }
+
+            $this->cache[$kunci] = $id;
         }
 
         if ($this->cache[$kunci] === null) {
