@@ -28,6 +28,17 @@ export interface UserPayload {
   status: string;
 }
 
+// parameter export; nama field sama dengan yang dibaca UserExportRequest di backend
+export interface UserExportParams {
+  format: 'xlsx' | 'csv';
+  scope: 'all' | 'filtered' | 'page';
+  columns: string[];
+  role?: string; // tab aktif, untuk scope filtered dan page
+  search?: string;
+  page?: number; // hanya untuk scope page
+  per_page?: number;
+}
+
 // satu pilihan dropdown
 export interface Option {
   id: number;

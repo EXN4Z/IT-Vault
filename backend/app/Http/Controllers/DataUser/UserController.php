@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\DataUser;
 
+use App\Exports\UserExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DataUser\UserExportRequest;
 use App\Http\Requests\DataUser\UserRequest;
+use App\Imports\UserImport;
 use App\Models\Cabang;
 use App\Models\Departemen;
 use App\Models\Perusahaan;
@@ -12,8 +15,9 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use App\Imports\UserImport;
+use Maatwebsite\Excel\Excel as ExcelType;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class UserController extends Controller
 {
@@ -21,29 +25,38 @@ class UserController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = min($request->integer('per_page', 10), 100);
-        $search = $request->string('search')->trim()->lower()->toString();
 
         $users = User::with('role:id,nama')
-            ->when($request->filled('role'), function ($q) use ($request) {
-                $role = $request->string('role')->lower()->toString();
-
-                $q->whereHas('role', fn ($r) =>
-                    $r->whereRaw('LOWER(nama) = ?', [$role])
-                );
-            })
-            ->when($search !== '', function ($q) use ($search) {
-                $like = '%'.$search.'%';
-
-                $q->where(fn ($w) => $w
-                    ->whereRaw('LOWER(name) LIKE ?', [$like])
-                    ->orWhereRaw('LOWER(email) LIKE ?', [$like])
-                    ->orWhereRaw('LOWER(nik) LIKE ?', [$like])
-                );
-            })
+            ->filterRole($request->string('role')->toString())
+            ->search($request->string('search')->toString())
             ->orderBy('id')
             ->paginate($perPage);
 
         return response()->json($users);
+    }
+
+    // GET /users/export?format=xlsx&scope=all&columns[]=name&columns[]=email
+    // scope: all = semua | filtered = sesuai `search` + `role` | page = satu halaman
+    public function export(UserExportRequest $request): BinaryFileResponse
+    {
+        $scope = $request->validated('scope');
+        $format = $request->validated('format');
+
+        $query = User::query()->orderBy('id');
+
+        if ($scope !== 'all') {
+            $query->filterRole($request->string('role')->toString())
+                ->search($request->string('search')->toString());
+        }
+
+        if ($scope === 'page') {
+            $query->forPage($request->integer('page'), $request->integer('per_page'));
+        }
+
+        $writer = $format === 'csv' ? ExcelType::CSV : ExcelType::XLSX;
+        $filename = 'user-'.now()->format('Y-m-d').'.'.$format;
+
+        return Excel::download(new UserExport($query, $request->validated('columns')), $filename, $writer);
     }
 
     // GET /users/options -> isi dropdown di form user
@@ -95,6 +108,8 @@ class UserController extends Controller
 
         return response()->noContent();
     }
+
+    // POST /users/import (multipart, field `file`)
     public function import(Request $request): JsonResponse
     {
         $request->validate([

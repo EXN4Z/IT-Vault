@@ -317,7 +317,7 @@ export default function InventoryPage() {
       key: 'link', header: 'Link', width: 'minmax(0,1fr)',
       cell: (i) => {
         if (i.parent) return <span className="truncate text-ink-soft">{i.parent.kode_inventory}</span>;
-        if ((i.children_count ?? 0) > 0) return <span className="truncate text-ink-soft">{i.children_count} Kelengkapan</span>;
+        if ((i.children_count ?? 0) > 0) return <span className="truncate text-ink-soft">{i.children_count} UNIT</span>;
         return <span className="text-ink-muted">-</span>;
       },
     },

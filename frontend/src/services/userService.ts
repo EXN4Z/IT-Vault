@@ -1,5 +1,7 @@
+import axios from 'axios';
 import { api } from '../lib/api';
-import type { Paginated, UserOptions, UserPayload, UserRow } from '../types/user';
+import type { Paginated, UserExportParams, UserOptions, UserPayload, UserRow } from '../types/user';
+
 export interface UserImportResult {
   message: string;
   ditambahkan: number;
@@ -7,7 +9,6 @@ export interface UserImportResult {
   jumlah_error: number;
   errors: string[];
 }
-
 
 export const userService = {
   // GET /users?role=user|admin&search=...
@@ -22,6 +23,24 @@ export const userService = {
   async options(): Promise<UserOptions> {
     const { data } = await api.get<UserOptions>('/users/options');
     return data;
+  },
+
+  // GET /users/export -> file xlsx / csv (Blob)
+  async export(params: UserExportParams): Promise<Blob> {
+    try {
+      const { data } = await api.get<Blob>('/users/export', { params, responseType: 'blob' });
+      return data;
+    } catch (err) {
+      // error server datang sebagai Blob; ubah balik ke JSON supaya getErrorMessage bisa membacanya
+      if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+        try {
+          err.response.data = JSON.parse(await err.response.data.text());
+        } catch {
+          /* bukan JSON -> biarkan apa adanya */
+        }
+      }
+      throw err;
+    }
   },
 
   // POST /users
@@ -41,6 +60,7 @@ export const userService = {
     await api.delete(`/users/${id}`);
   },
 
+  // POST /users/import
   async import(file: File): Promise<UserImportResult> {
     const formData = new FormData();
     formData.append('file', file);
