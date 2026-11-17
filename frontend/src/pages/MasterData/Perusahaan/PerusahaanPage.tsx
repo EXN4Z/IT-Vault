@@ -4,10 +4,11 @@ import DataTable, { type Column } from '../../../components/ui/DataTable';
 import SearchField from '../../../components/ui/SearchField';
 import Modal from '../../../components/modal/Modal';
 import { btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
-import { perusahaanService } from '../../../services/perusahaanService';
+import { perusahaanService, type PerusahaanImportResponse } from '../../../services/perusahaanService';
 import { getErrorMessage } from '../../../lib/errors';
 import type { Perusahaan } from '../../../types/perusahaan';
 import PerusahaanFormModal from './PerusahaanFormModal';
+import ImportModal from '../../../components/modal/ImportModal';
 
 const PER_PAGE = 10;
 

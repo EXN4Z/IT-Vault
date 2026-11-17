@@ -8,6 +8,8 @@ use App\Models\Perusahaan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\PerusahaanImport;
 
 class PerusahaanController extends Controller
 {
@@ -55,5 +57,15 @@ class PerusahaanController extends Controller
         $perusahaan->delete();
 
         return response()->noContent();
+    }
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:5120'],
+        ]);
+
+        Excel::import(new PerusahaanImport, $request->file('file'));
+
+        return back()->with('success', 'Data perusahaan berhasil diimport.');
     }
 }

@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CRUD perusahaan: index, store, update, destroy
     Route::apiResource('perusahaan', PerusahaanController::class)->except('show');
+    Route::post('/perusahaan/import', [PerusahaanController::class, 'import']);
 
     // CRUD departemen: index, store, update, destroy
     Route::apiResource('departemen', DepartemenController::class)->except('show');
