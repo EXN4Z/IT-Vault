@@ -58,14 +58,22 @@ class PerusahaanController extends Controller
 
         return response()->noContent();
     }
-    public function import(Request $request)
+    public function import(Request $request): JsonResponse
     {
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:5120'],
         ]);
 
-        Excel::import(new PerusahaanImport, $request->file('file'));
+        $import = new PerusahaanImport;
+        Excel::import($import, $request->file('file'));
 
-        return back()->with('success', 'Data perusahaan berhasil diimport.');
+        return response()->json([
+            'message'      => 'Import selesai.',
+            'ditambahkan'  => $import->ditambahkan,
+            'dipulihkan'   => $import->dipulihkan,
+            'dilewati'     => $import->dilewati,
+            'jumlah_error' => count($import->errors),
+            'errors'       => $import->errors,
+        ]);
     }
 }

@@ -37,12 +37,12 @@ export const perusahaanService = {
     await api.delete(`/perusahaan/${id}`);
   },
 
-    async import(file: File): Promise<PerusahaanImportResponse> {
-      const formData = new FormData();
-      formData.append('file', file);
-      const { data } = await api.post<PerusahaanImportResponse>('/perusahaan/import', formData, {
-        timeout: 0, // file besar diproses per baris di server, jangan putus di tengah
-      });
-      return data;
-    },
+  async import(file: File): Promise<PerusahaanImportResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post<PerusahaanImportResponse>('/perusahaan/import', formData, {
+      timeout: 0, // file besar diproses per baris di server, jangan putus di tengah
+    });
+    return data;
+  },
   };
