@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Hash, Layers, Loader2, Package, Palette, Tag, Truck, Building2, FileText } from 'lucide-react';
+import { Loader2,} from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
 import FormField, { inputClass, textareaClass } from '../../../components/form/FormField';
 import ComboBox, { type ComboboxOption } from '../../../components/form/ComboBox';

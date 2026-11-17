@@ -5,7 +5,7 @@ import SearchField from '../../../components/ui/SearchField';
 import Modal from '../../../components/modal/Modal';
 import ImportModal from '../../../components/modal/ImportModal';
 import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
-import { btnDanger, btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
+import { btnCreate, btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
 import { cabangService } from '../../../services/cabangService';
 import { getErrorList, getErrorMessage } from '../../../lib/errors';
 import { saveBlob } from '../../../lib/downloadExport';
@@ -209,7 +209,7 @@ export default function CabangPage() {
           <button type="button" className={btnOutline} onClick={() => { setExportError(''); setExportOpen(true); }}>
             <Download size={14} />Export
           </button>
-          <button type="button" className={btnSolid} onClick={openCreate}>
+          <button type="button" className={btnCreate} onClick={openCreate}>
             <Plus size={14} />Tambah Cabang
           </button>
         </div>

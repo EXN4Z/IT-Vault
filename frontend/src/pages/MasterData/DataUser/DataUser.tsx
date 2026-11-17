@@ -6,7 +6,7 @@ import Badge from '../../../components/ui/Badge';
 import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
-import { btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
+import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
 import { userService, type UserImportResult } from '../../../services/userService';
 import { getErrorMessage } from '../../../lib/errors';
 import { saveBlob } from '../../../lib/downloadExport';
@@ -236,20 +236,14 @@ export default function UsersPage() {
 
   const label = TABS.find((t) => t.key === tab)!.label;
 
-  const outline = 'flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-xs font-semibold transition hover:bg-hover';
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-soft">Kelola data user dan karyawan sistem, akun login, departemen, dan hak akses.</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={outline} onClick={() => { setExportError(''); setExportOpen(true); }}><Download size={14} />Export Excel</button>
-          <button type="button" className={outline} onClick={openImport}><Upload size={14} />Import Excel</button>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-surface transition hover:opacity-90"
-          >
+          <button type="button" className={btnOutline} onClick={() => { setExportError(''); setExportOpen(true); }}><Download size={14} />Export Excel</button>
+          <button type="button" className={btnOutline} onClick={openImport}><Upload size={14} />Import Excel</button>
+          <button type="button" className={btnCreate} onClick={openCreate}>
             <Plus size={14} />Tambah User
           </button>
         </div>

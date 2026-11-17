@@ -45,7 +45,7 @@ class InventoryController extends Controller
                     ->orWhereRaw('LOWER(serial_number) LIKE ?', [$like])
                 );
             })
-            ->orderByDesc('id')
+            ->orderByDesc('kode_inventory')
             ->paginate($perPage);
 
         return response()->json($data);

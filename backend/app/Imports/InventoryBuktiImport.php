@@ -584,7 +584,13 @@ class InventoryBuktiImport implements ToCollection, WithCalculatedFormulas
                         $inventory = $terhapus;
                         $dipulihkan = true;
                     } else {
-                        $inventory = Inventory::create($data);
+                        $inventory = new Inventory(\Illuminate\Support\Arr::except($data, ['kode_inventory']));
+
+                        if ($data['kode_inventory'] !== null) {
+                            $inventory->kode_inventory = $data['kode_inventory'];
+                        }
+
+                        $inventory->save();
                     }
 
                     // Baris pemakai: kalau baris dipulihkan dan pemakai aktif
