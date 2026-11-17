@@ -9,7 +9,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Excel as ExcelType;
 use App\Imports\PerusahaanImport;
+use App\Exports\PerusahaanExport;
 
 class PerusahaanController extends Controller
 {
@@ -75,5 +77,32 @@ class PerusahaanController extends Controller
             'jumlah_error' => count($import->errors),
             'errors'       => $import->errors,
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $data = $request->validate([
+            'format'    => ['nullable', 'in:xlsx,csv'],
+            'scope'     => ['nullable', 'in:all,filtered,page'],
+            'search'    => ['nullable', 'string', 'max:100'],
+            'columns'   => ['nullable', 'array'],
+            'columns.*' => ['string', 'in:' . implode(',', array_keys(PerusahaanExport::KOLOM))],
+            'ids'       => ['nullable', 'array'],
+            'ids.*'     => ['integer'],
+        ]);
+
+        $format = $data['format'] ?? 'xlsx';
+        $scope  = $data['scope'] ?? 'all';
+
+        $export = new PerusahaanExport(
+            columns: $data['columns'] ?? [],
+            format: $format,
+            search: $scope === 'filtered' ? ($data['search'] ?? null) : null,
+            ids: $scope === 'page' ? ($data['ids'] ?? []) : null,
+        );
+
+        $nama = 'Data Perusahaan - ' . now()->locale('id')->translatedFormat('j F Y') . '.' . $format;
+
+        return Excel::download($export, $nama, $format === 'csv' ? ExcelType::CSV : ExcelType::XLSX);
     }
 }

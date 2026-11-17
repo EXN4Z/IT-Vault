@@ -85,22 +85,23 @@ export const inventoryService = {
   },
 
   // GET /inventory/export -> file (blob)
+// POST /inventory/export -> file (blob)
   async export(
     opts: ExportOptions & { page: number; perPage: number; status?: string; search?: string },
   ): Promise<Blob> {
-    const { data } = await api.post<Blob>('/inventory/export', {
-      params: {
+    const { data } = await api.post<Blob>(
+      '/inventory/export',
+      {
         format: opts.format,
         scope: opts.scope,
-        columns: opts.columns, // dikirim sebagai columns[]=a&columns[]=b
+        columns: opts.columns,
         status: opts.status,
         search: opts.search || undefined,
         page: opts.page,
         per_page: opts.perPage,
       },
-      responseType: 'blob',
-      timeout: 0,
-    });
+      { responseType: 'blob', timeout: 0 },
+    );
     return data;
   },
 };

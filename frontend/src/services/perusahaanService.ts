@@ -1,6 +1,7 @@
 import { api } from '../lib/api';
 import type { Perusahaan, PerusahaanPayload } from '../types/perusahaan';
 import type { Paginated } from '../types/user';
+import type { ExportFormat, ExportScope } from '../components/modal/ExportModal';
 
   export interface PerusahaanImportResponse {
     message: string;
@@ -9,6 +10,14 @@ import type { Paginated } from '../types/user';
     dilewati: number;
     jumlah_error: number;
     errors: string[];
+  }
+
+  export interface PerusahaanExportParams {
+    format: ExportFormat;
+    scope: ExportScope;
+    columns: string[];
+    search?: string; // dipakai kalau scope = 'filtered'
+    ids?: number[]; // dipakai kalau scope = 'page' (id baris yang tampil)
   }
 
 export const perusahaanService = {
@@ -45,4 +54,13 @@ export const perusahaanService = {
     });
     return data;
   },
-  };
+
+  async export(params: PerusahaanExportParams): Promise<Blob> {
+    const { data } = await api.get<Blob>('/perusahaan/export', {
+      params,
+      responseType: 'blob',
+      timeout: 0,
+    });
+    return data;
+  },
+};
