@@ -62,16 +62,16 @@ class PeminjamanController extends Controller
                     'created_by' => $request->user()->id,
                 ]);
 
-                // barang utama selalu jadi dipinjam
-                $locked->update(['status' => 'dipinjam', 'peminjam_id' => $data['user_id']]);
+                // barang utama selalu jadi dipakai
+                $locked->update(['status' => 'dipakai', 'peminjam_id' => $data['user_id']]);
 
-                // kelengkapan: peminjamnya selalu ikut barang utama; statusnya jadi dipinjam
+                // kelengkapan: peminjamnya selalu ikut barang utama; statusnya jadi dipakai
                 // hanya kalau sedang tersedia (yang rusak / diperbaiki tetap statusnya).
-                // Tiap kelengkapan dicatat ikut dipinjam di riwayat.
+                // Tiap kelengkapan dicatat ikut dipakai di riwayat.
                 foreach ($locked->children()->get() as $child) {
                     $child->update([
                         'peminjam_id' => $data['user_id'],
-                        'status' => $child->status === 'tersedia' ? 'dipinjam' : $child->status,
+                        'status' => $child->status === 'tersedia' ? 'dipakai' : $child->status,
                     ]);
 
                     PeminjamanItem::buka($peminjaman, $child->id);
@@ -93,7 +93,7 @@ class PeminjamanController extends Controller
     // jadi kelengkapan yang dipasang menyusul ikut muncul. Modal Kembalikan juga memakai data ini.
     public function struk(Inventory $inventory): JsonResponse
     {
-        $this->ensureSedangDipinjam($inventory, 'Struk hanya bisa dicetak ulang untuk barang utama yang sedang dipinjam.');
+        $this->ensureSedangDipakai($inventory, 'Struk hanya bisa dicetak ulang untuk barang utama yang sedang dipakai.');
 
         return response()->json($this->strukPayload($this->peminjamanAktif($inventory), $inventory));
     }
@@ -102,14 +102,14 @@ class PeminjamanController extends Controller
     // -> kembalikan barang utama beserta kelengkapannya. Mengembalikan data untuk struk pengembalian.
     public function kembalikan(KembalikanRequest $request, Inventory $inventory): JsonResponse
     {
-        $this->ensureSedangDipinjam($inventory, 'Hanya barang utama yang sedang dipinjam yang bisa dikembalikan.');
+        $this->ensureSedangDipakai($inventory, 'Hanya barang utama yang sedang dipakai yang bisa dikembalikan.');
 
         $data = $request->validated();
 
         $peminjaman = DB::transaction(function () use ($request, $data, $inventory) {
             // kunci barangnya lalu cek ulang, supaya dua admin tidak mengembalikan barang yang sama bersamaan
             $locked = Inventory::lockForUpdate()->findOrFail($inventory->id);
-            $this->ensureSedangDipinjam($locked, 'Hanya barang utama yang sedang dipinjam yang bisa dikembalikan.');
+            $this->ensureSedangDipakai($locked, 'Hanya barang utama yang sedang dipakai yang bisa dikembalikan.');
 
             $peminjaman = $this->peminjamanAktif($locked);
 
@@ -127,8 +127,8 @@ class PeminjamanController extends Controller
             }
 
             foreach ($locked->children()->get() as $child) {
-                // yang tadinya dipinjam jadi tersedia, yang rusak / diperbaiki tetap statusnya
-                $kondisi = $child->status === 'dipinjam' ? 'tersedia' : $child->status;
+                // yang tadinya dipakai jadi tersedia, yang rusak / diperbaiki tetap statusnya
+                $kondisi = $child->status === 'dipakai' ? 'tersedia' : $child->status;
 
                 // parent_id tidak berubah, jadi hook link di model tidak ikut jalan
                 $child->update(['peminjam_id' => null, 'status' => $kondisi]);
@@ -150,8 +150,8 @@ class PeminjamanController extends Controller
                 }
             }
 
-            // barang utama: dipinjam jadi tersedia, kalau rusak / diperbaiki tetap statusnya (sama seperti kelengkapan)
-            $kondisiUtama = $locked->status === 'dipinjam' ? 'tersedia' : $locked->status;
+            // barang utama: dipakai jadi tersedia, kalau rusak / diperbaiki tetap statusnya (sama seperti kelengkapan)
+            $kondisiUtama = $locked->status === 'dipakai' ? 'tersedia' : $locked->status;
             $locked->update(['peminjam_id' => null, 'status' => $kondisiUtama]);
 
             $peminjaman->update([
@@ -243,10 +243,10 @@ class PeminjamanController extends Controller
         }
     }
 
-    // barang utama (bukan kelengkapan) yang statusnya dipinjam
-    private function ensureSedangDipinjam(Inventory $inventory, string $pesan): void
+    // barang utama (bukan kelengkapan) yang statusnya dipakai
+    private function ensureSedangDipakai(Inventory $inventory, string $pesan): void
     {
-        if ($inventory->parent_id !== null || $inventory->status !== 'dipinjam') {
+        if ($inventory->parent_id !== null || $inventory->status !== 'dipakai') {
             throw ValidationException::withMessages(['inventory' => $pesan]);
         }
     }

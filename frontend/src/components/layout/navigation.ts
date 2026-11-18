@@ -1,4 +1,19 @@
-import { ArrowLeftRight, Database, LayoutDashboard, Package, Users, Building2, Layers, type LucideIcon, Store, Tags, Truck, MonitorCog } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Database,
+  LayoutDashboard,
+  Package,
+  Users,
+  Building2,
+  Layers,
+  type LucideIcon,
+  Store,
+  Tags,
+  Truck,
+  MonitorCog,
+  FileBarChart2,
+  Images,
+} from 'lucide-react';
 
 // ===== tipe data menu =====
 
@@ -30,6 +45,16 @@ export const navItems: NavItem[] = [
     matchPrefix: '/transaksi',
     children: [
       { label: 'Penanganan Inventory', path: '/transaksi/penanganan', icon: MonitorCog },
+    ],
+  },
+
+  {
+    label: 'Laporan',
+    icon: FileBarChart2,
+    section: 'menu',
+    matchPrefix: '/laporan',
+    children: [
+      { label: 'Foto Inventory', path: '/laporan?tab=foto-inventory', icon: Images },
     ],
   },
 

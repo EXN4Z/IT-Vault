@@ -1,0 +1,16 @@
+git add app/Http/Controllers/Inventory/InventoryController.php
+git add app/Http/Controllers/Inventory/PeminjamanController.php
+git add app/Http/Controllers/Transaksi/PenangananController.php
+git add app/Models/Inventory.php
+git add routes/api.php
+git add ../frontend/src/App.tsx
+git add ../frontend/src/components/layout/navigation.ts
+git add ../frontend/src/pages/MasterData/Inventory/InventoryDetailModal.tsx
+git add ../frontend/src/pages/MasterData/Inventory/InventoryPage.tsx
+git add ../frontend/src/types/inventory.ts
+git add app/Http/Controllers/Laporan/
+git add database/migrations/2026_11_18_020329_update_status_dipinjam_to_dipakai.php
+git add ../frontend/src/components/modal/ImageZoomModal.tsx
+git add ../frontend/src/pages/Laporan/
+git add ../frontend/src/services/laporanService.ts
+git add ../frontend/src/types/laporan.ts

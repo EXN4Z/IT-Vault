@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import LoginPage from './pages/Login/LoginPage';
 import MasterDataPage from './pages/MasterData/MasterDataPage';
+import LaporanPage from './pages/Laporan/LaporanPage';
 import PenangananPage from './pages/Transaksi/Penanganan/PenangananPage';
 
 // daftar semua route aplikasi
@@ -19,6 +20,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/master-data" element={<MasterDataPage />} />
+          <Route path="/laporan" element={<LaporanPage />} />
           <Route path="/transaksi/penanganan" element={<PenangananPage />} />
         </Route>
       </Route>
