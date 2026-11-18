@@ -12,6 +12,8 @@ class KategoriImport implements ToCollection
     // baris awal yang discan untuk mencari header (judul/keterangan di atas tabel dilewati)
     private const MAX_BARIS_DISCAN = 10;
 
+    private const NAMA_HEADER = ['nama', 'nama_kategori'];
+
     // isi sel yang dianggap kosong
     private const PLACEHOLDER = ['-', '--', '---', 'n/a', 'na', '.', 'kosong'];
 
@@ -76,7 +78,7 @@ class KategoriImport implements ToCollection
     {
         foreach ($rows->take(self::MAX_BARIS_DISCAN) as $i => $row) {
             foreach ($row as $pos => $cell) {
-                if ($this->normalisasiHeader((string) $cell) === 'nama') {
+                if (in_array($this->normalisasiHeader((string) $cell), self::NAMA_HEADER, true)) {
                     return [$i, $pos];
                 }
             }
