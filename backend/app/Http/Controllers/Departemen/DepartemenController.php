@@ -8,6 +8,8 @@ use App\Models\Departemen;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use App\Imports\DepartemenImport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DepartemenController extends Controller
 {
@@ -47,5 +49,23 @@ class DepartemenController extends Controller
         $departemen->delete();
 
         return response()->noContent();
+    }
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:5120'],
+        ]);
+
+        $import = new DepartemenImport;
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'message'      => 'Import selesai.',
+            'ditambahkan'  => $import->ditambahkan,
+            'dipulihkan'   => $import->dipulihkan,
+            'dilewati'     => $import->dilewati,
+            'jumlah_error' => count($import->errors),
+            'errors'       => $import->errors,
+        ]);
     }
 }

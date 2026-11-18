@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CRUD departemen: index, store, update, destroy
     Route::apiResource('departemen', DepartemenController::class)->except('show');
+    Route::post('/departemen/import', [DepartemenController::class, 'import']);
 
     // /inventory/options harus di atas apiResource supaya tidak ditabrak route /inventory/{inventory}
     Route::get('/inventory/options', [InventoryController::class, 'options']);
