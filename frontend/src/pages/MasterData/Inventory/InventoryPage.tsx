@@ -334,8 +334,8 @@ export default function InventoryPage() {
       },
     },
     {
-      key: 'peminjam', header: 'Peminjam', width: 'minmax(0,1fr)', sortable: true,
-      cell: (i) => <span className="truncate">{i.peminjam?.name ?? '-'}</span>,
+      key: 'pemakaiSaatIni', header: 'Pemakai', width: 'minmax(0,1fr)', sortable: true,
+      cell: (i) => <span className="truncate">{i.pemakai_saat_ini?.name ?? '-'}</span>,
     },
     {
       key: 'status', header: 'Status', width: '170px', align: 'left', sortable: true,
