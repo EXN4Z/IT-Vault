@@ -12,8 +12,13 @@ export interface ExportParams {
 }
 
 export interface ImportResult {
-  imported?: number;
-  message?: string;
+  message: string;
+  ditambahkan?: number;
+  diperbarui?: number; // modul yang memperbarui data lama (mis. user)
+  dipulihkan?: number; // modul yang punya soft delete
+  dilewati?: number;
+  jumlah_error?: number;
+  errors?: string[];
 }
 
 // export / import generik untuk halaman master data; `path` = '/perusahaan', '/departemen', dst
@@ -40,7 +45,9 @@ export const transferService = {
   async import(path: string, file: File): Promise<ImportResult> {
     const form = new FormData();
     form.append('file', file);
-    const { data } = await api.post<ImportResult>(`${path}/import`, form);
+    const { data } = await api.post<ImportResult>(`${path}/import`, form, {
+      timeout: 0, // file besar diproses per baris di server, jangan putus di tengah
+    });
     return data;
   },
 };

@@ -9,7 +9,8 @@ import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
 import { btnCreate, btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
-import { inventoryService, type InventoryImportResult } from '../../../services/inventoryService';
+import { inventoryService } from '../../../services/inventoryService';
+import { transferService, type ImportResult } from '../../../services/transferService';
 import { peminjamanService } from '../../../services/peminjamanService';
 import { getErrorMessage } from '../../../lib/errors';
 import { openReceiptWindow, writeReceipt } from '../../../lib/receipt';
@@ -77,7 +78,7 @@ export default function InventoryPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
   const [importDetails, setImportDetails] = useState<string[]>([]);
-  const [importResult, setImportResult] = useState<InventoryImportResult | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   //export
   const [exportOpen, setExportOpen] = useState(false);
@@ -154,7 +155,7 @@ export default function InventoryPage() {
     setImportError('');
     setImportDetails([]);
     try {
-      const res = await inventoryService.import(file);
+      const res = await transferService.import('/inventory', file); 
       setImportOpen(false);
       setImportResult(res); // ringkasan tampil di halaman
       setPage(1);
@@ -458,9 +459,9 @@ export default function InventoryPage() {
             <div className="flex items-start justify-between gap-3">
               <p>
                 Import selesai:{' '}
-                <span className="font-semibold">{importResult.ditambahkan}</span> ditambahkan,{' '}
-                {importResult.dipulihkan} dipulihkan, {importResult.dilewati} dilewati
-                {importResult.jumlah_error > 0 && `, ${importResult.jumlah_error} catatan`}.
+                <span className="font-semibold">{importResult.ditambahkan ?? 0}</span> ditambahkan,{' '}
+                {importResult.dipulihkan ?? 0} dipulihkan, {importResult.dilewati ?? 0} dilewati
+                {(importResult.jumlah_error ?? 0) > 0 && `, ${importResult.jumlah_error} catatan`}.
               </p>
               <button
                 type="button"
@@ -469,7 +470,7 @@ export default function InventoryPage() {
                 onClick={() => setImportResult(null)}
               >×</button>
             </div>
-            {importResult.errors.length > 0 && (
+            {importResult.errors && importResult.errors.length > 0 && (
               <ul className="mt-1.5 max-h-32 list-disc space-y-0.5 overflow-y-auto pl-4 text-ink-soft">
                 {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
               </ul>

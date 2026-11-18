@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // CRUD departemen: index, store, update, destroy
     Route::apiResource('departemen', DepartemenController::class)->except('show');
     Route::post('/departemen/import', [DepartemenController::class, 'import']);
+    Route::get('/departemen/export', [DepartemenController::class, 'export']);
 
     // /inventory/options harus di atas apiResource supaya tidak ditabrak route /inventory/{inventory}
     Route::get('/inventory/options', [InventoryController::class, 'options']);
@@ -68,9 +69,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CRUD kategori: index, store, update, destroy
     Route::apiResource('kategori', KategoriController::class)->except('show');
+    Route::post('/kategori/import', [KategoriController::class, 'import']);
+    Route::get('/kategori/export', [KategoriController::class, 'export']);
 
     // CRUD supplier: index, store, update, destroy
     Route::apiResource('supplier', SupplierController::class)->except('show');
+    Route::post('/supplier/import', [SupplierController::class, 'import']);
+    Route::get('/supplier/export', [SupplierController::class, 'export']);
 
     // export cabang (xlsx / csv); ditaruh di atas apiResource, sama seperti /users/options
     Route::get('/cabang/export', [CabangController::class, 'export']);

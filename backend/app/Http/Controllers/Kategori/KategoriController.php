@@ -9,6 +9,10 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use App\Exports\KategoriExport;
+use App\Imports\KategoriImport;
+use Maatwebsite\Excel\Excel as ExcelType;
+use Maatwebsite\Excel\Facades\Excel;
 
 class KategoriController extends Controller
 {
@@ -57,5 +61,50 @@ class KategoriController extends Controller
         }
 
         return response()->noContent();
+    }
+
+    public function export(Request $request)
+    {
+        $data = $request->validate([
+            'format'    => ['nullable', 'in:xlsx,csv'],
+            'scope'     => ['nullable', 'in:all,filtered,page'],
+            'search'    => ['nullable', 'string', 'max:100'],
+            'columns'   => ['nullable', 'array'],
+            'columns.*' => ['string', 'in:' . implode(',', array_keys(KategoriExport::KOLOM))],
+            'page'      => ['nullable', 'integer', 'min:1'],
+            'per_page'  => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $format = $data['format'] ?? 'xlsx';
+
+        $export = new KategoriExport(
+            format: $format,
+            scope: $data['scope'] ?? 'all',
+            search: $data['search'] ?? null,
+            page: (int) ($data['page'] ?? 1),
+            perPage: (int) ($data['per_page'] ?? 10),
+        );
+
+        $nama = 'Data Kategori - ' . now()->locale('id')->translatedFormat('j F Y') . '.' . $format;
+
+        return Excel::download($export, $nama, $format === 'csv' ? ExcelType::CSV : ExcelType::XLSX);
+    }
+
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:5120'],
+        ]);
+
+        $import = new KategoriImport;
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'message'      => 'Import selesai.',
+            'ditambahkan'  => $import->ditambahkan,
+            'dilewati'     => $import->dilewati,
+            'jumlah_error' => count($import->errors),
+            'errors'       => $import->errors,
+        ]);
     }
 }

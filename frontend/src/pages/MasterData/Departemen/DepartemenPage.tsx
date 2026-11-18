@@ -7,9 +7,9 @@ import ImportModal from '../../../components/modal/ImportModal';
 import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
 import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
 import { departemenService, type DepartemenImportResponse } from '../../../services/departemenService';
-import { transferService } from '../../../services/transferService';
 import { getErrorList, getErrorMessage } from '../../../lib/errors';
 import { saveBlob } from '../../../lib/downloadExport';
+import { transferService } from '../../../services/transferService';
 import type { Departemen } from '../../../types/departemen';
 import DepartemenFormModal from './DepartemenFormModal';
 

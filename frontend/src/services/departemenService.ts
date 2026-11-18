@@ -1,6 +1,7 @@
 import { api } from '../lib/api';
 import type { Departemen, DepartemenPayload } from '../types/departemen';
 import type { Paginated } from '../types/user';
+import type { ExportFormat, ExportScope } from '../components/modal/ExportModal';
 
 export interface DepartemenImportResponse {
   message: string;
@@ -9,6 +10,15 @@ export interface DepartemenImportResponse {
   dilewati: number;
   jumlah_error: number;
   errors: string[];
+}
+
+export interface DepartemenExportParams {
+  format: ExportFormat;
+  scope: ExportScope;
+  columns: string[];
+  search?: string;   // dipakai kalau scope bukan 'all'
+  page?: number;     // dipakai kalau scope = 'page'
+  per_page?: number; // dipakai kalau scope = 'page'
 }
 
 export const departemenService = {
@@ -45,4 +55,13 @@ export const departemenService = {
     });
     return data;
   },
+
+    async export(params: DepartemenExportParams): Promise<Blob> {
+      const { data } = await api.get<Blob>('/departemen/export', {
+        params, // columns dikirim sebagai columns[]=nama
+        responseType: 'blob',
+        timeout: 0,
+      });
+      return data;
+    },
 };
