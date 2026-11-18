@@ -162,7 +162,7 @@ class PenangananController extends Controller
 
     // POST /penanganan/{penanganan}/selesai { hasil, tanggal_selesai, harga_jasa, biaya_komponen, catatan }
     // -> perbaikan selesai (berhasil atau tidak bisa diperbaiki). Nomor struk dibuat server.
-    // Status barang: berhasil -> dipinjam (kalau masih dipegang peminjam) atau tersedia; tidak bisa diperbaiki -> rusak_berat.
+    // Status barang: berhasil -> dipakai (kalau masih dipegang peminjam) atau tersedia; tidak bisa diperbaiki -> rusak_berat.
     public function selesai(SelesaikanPenangananRequest $request, Penanganan $penanganan): JsonResponse
     {
         // TODO(permission): hanya admin yang boleh menyelesaikan penanganan
@@ -201,7 +201,7 @@ class PenangananController extends Controller
 
             // hanya status yang berubah; peminjam_id dibiarkan (barang tetap dipegang peminjamnya)
             $inventory->update([
-                'status' => $berhasil ? ($inventory->peminjam_id !== null ? 'dipinjam' : 'tersedia') : 'rusak_berat',
+                'status' => $berhasil ? ($inventory->peminjam_id !== null ? 'dipakai' : 'tersedia') : 'rusak_berat',
             ]);
 
             return $locked;

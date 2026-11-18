@@ -181,8 +181,8 @@ class InventoryController extends Controller
                 throw ValidationException::withMessages(['inventory' => $error]);
             }
 
-            // barang yang rusak berat saat dipinjam masih tercatat dipegang peminjamnya dan tombol Kembalikan
-            // tidak bisa dipakai lagi (hanya menerima status Dipinjam), jadi peminjaman ditutup di sini
+            // barang yang rusak berat saat dipakai masih tercatat dipegang peminjamnya dan tombol Kembalikan
+            // tidak bisa dipakai lagi (hanya menerima status Dipakai), jadi peminjaman ditutup di sini
             $peminjaman = Peminjaman::aktif()->where('inventory_id', $locked->id)->latest('id')->first();
 
             if ($peminjaman) {
@@ -235,10 +235,10 @@ class InventoryController extends Controller
     {
         $this->ensureTidakTerkunci($inventory);
 
-        // barang yang sedang dipinjam (juga kelengkapannya) harus dikembalikan dulu
-        if ($inventory->status === 'dipinjam') {
+        // barang yang sedang dipakai (juga kelengkapannya) harus dikembalikan dulu
+        if ($inventory->status === 'dipakai') {
             throw ValidationException::withMessages([
-                'inventory' => 'Inventory yang sedang dipinjam tidak bisa dihapus. Kembalikan dulu.',
+                'inventory' => 'Inventory yang sedang dipakai tidak bisa dihapus. Kembalikan dulu.',
             ]);
         }
 

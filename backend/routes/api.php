@@ -6,6 +6,7 @@ use App\Http\Controllers\Departemen\DepartemenController;
 use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Kategori\KategoriController;
 use App\Http\Controllers\Inventory\PeminjamanController;
+use App\Http\Controllers\Laporan\LaporanFotoController;
 use App\Http\Controllers\Transaksi\PenangananController;
 use App\Http\Controllers\Perusahaan\PerusahaanController;
 use App\Http\Controllers\Supplier\SupplierController;
@@ -18,8 +19,8 @@ Route::post('/login', [AuthController::class, 'login'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
     // CRUD user: index, store, update, destroy
-    // /users/options dan /users/export harus di atas apiResource supaya tidak ditabrak route /users/{user}
     Route::get('/users/options', [UserController::class, 'options']);
     Route::get('/users/export', [UserController::class, 'export']);
     Route::apiResource('users', UserController::class)->except('show');
@@ -57,12 +58,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/inventory/{inventory}/riwayat', [PeminjamanController::class, 'riwayat']);
     Route::get('/peminjaman/{peminjaman}/struk-pengembalian', [PeminjamanController::class, 'strukPengembalian']);
 
-    // penanganan kerusakan: daftar untuk halaman Penanganan, lapor, dan riwayat per barang (juga di atas apiResource)
+    // penanganan kerusakan: daftar untuk halaman Penanganan, lapor, dan riwayat per barang
     Route::get('/penanganan', [PenangananController::class, 'index']);
     Route::post('/penanganan/{penanganan}/terima', [PenangananController::class, 'terima']);
     Route::post('/penanganan/{penanganan}/selesai', [PenangananController::class, 'selesai']);
     Route::get('/inventory/{inventory}/penanganan', [PenangananController::class, 'riwayat']);
     Route::post('/inventory/{inventory}/lapor-kerusakan', [PenangananController::class, 'store']);
+
+    // laporan dokumentasi foto inventory
+    Route::get('/laporan/foto-inventory', [LaporanFotoController::class, 'index']);
 
     // CRUD inventory: index, store, update, destroy
     Route::apiResource('inventory', InventoryController::class)->except('show');
@@ -77,10 +81,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/supplier/import', [SupplierController::class, 'import']);
     Route::get('/supplier/export', [SupplierController::class, 'export']);
 
-    // export cabang (xlsx / csv); ditaruh di atas apiResource, sama seperti /users/options
+    // export & import cabang
     Route::get('/cabang/export', [CabangController::class, 'export']);
-
-    // import cabang (xlsx / xls / csv); juga di atas apiResource
     Route::post('/cabang/import', [CabangController::class, 'import']);
 
     // CRUD cabang: index, store, update, destroy

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Inventory extends Model
 {
     // status yang dikenal; dipakai validasi dan filter tab
-    public const STATUSES = ['tersedia', 'dipinjam', 'menunggu_perbaikan', 'diperbaiki', 'rusak_berat', 'dijual'];
+    public const STATUSES = ['tersedia', 'dipakai', 'menunggu_perbaikan', 'diperbaiki', 'rusak_berat', 'dijual'];
 
     // nama tabel singular, jadi harus ditulis eksplisit (default Laravel: "inventories")
     protected $table = 'inventory';
@@ -33,9 +33,9 @@ class Inventory extends Model
     protected array $linkEffects = [];
 
     // peminjam kelengkapan ikut barang utamanya tiap kali link-nya berubah (tombol Link / Lepas link maupun form Ubah):
-    // - dipasang ke barang utama yang sedang dipinjam: ikut dipinjam karyawan yang sama, tercatat di riwayat peminjaman
-    // - dilepas dari barang utama yang sedang dipinjam: dianggap dikembalikan otomatis, kembali tersedia, tercatat di riwayat
-    // (status dipinjam <-> tersedia saja yang berubah; status lain seperti rusak / diperbaiki dibiarkan)
+    // - dipasang ke barang utama yang sedang dipakai: ikut dipakai karyawan yang sama, tercatat di riwayat peminjaman
+    // - dilepas dari barang utama yang sedang dipakai: dianggap dikembalikan otomatis, kembali tersedia, tercatat di riwayat
+    // (status dipakai <-> tersedia saja yang berubah; status lain seperti rusak / diperbaiki dibiarkan)
     protected static function booted(): void
     {
         static::saving(function (self $inventory) {
@@ -51,8 +51,8 @@ class Inventory extends Model
 
             // induk yang rusak berat / diperbaiki tapi belum dikembalikan masih dipegang peminjamnya,
             // jadi kelengkapan yang dilepas tetap harus ikut "dikembalikan" (kalau tidak, nyangkut di peminjam)
-            $oldBorrowed = $oldParent !== null && ($oldParent->status === 'dipinjam' || $oldParent->peminjam_id !== null);
-            $newBorrowed = $newParent?->status === 'dipinjam';
+            $oldBorrowed = $oldParent !== null && ($oldParent->status === 'dipakai' || $oldParent->peminjam_id !== null);
+            $newBorrowed = $newParent?->status === 'dipakai';
 
             if ($oldBorrowed) {
                 $inventory->linkEffects['detach'] = $oldParent->id;
@@ -64,12 +64,12 @@ class Inventory extends Model
 
                 // barang baru belum punya status di atribut (default database), dianggap tersedia
                 if (($inventory->status ?? 'tersedia') === 'tersedia') {
-                    $inventory->status = 'dipinjam';
+                    $inventory->status = 'dipakai';
                 }
             } elseif ($oldBorrowed) {
                 $inventory->peminjam_id = null;
 
-                if ($inventory->status === 'dipinjam') {
+                if ($inventory->status === 'dipakai') {
                     $inventory->status = 'tersedia';
                 }
             }
@@ -117,7 +117,7 @@ class Inventory extends Model
         return $this->belongsTo(self::class, 'parent_id');
     }
 
-    // karyawan yang sedang meminjam (barang utama dan kelengkapannya sama)
+    // karyawan yang sedang memakai (barang utama dan kelengkapannya sama)
     public function peminjam(): BelongsTo
     {
         return $this->belongsTo(User::class, 'peminjam_id');
@@ -170,10 +170,10 @@ class Inventory extends Model
             return 'Inventory tujuan sudah jadi kelengkapan dari inventory lain, jadi tidak bisa dijadikan barang utama.';
         }
 
-        // jangan menimpa peminjam lain: kelengkapan yang sedang dipinjam karyawan A tidak boleh
-        // dipasang ke barang utama yang dipinjam karyawan B
-        if ($parent->status === 'dipinjam' && $this->status === 'dipinjam' && $this->peminjam_id !== $parent->peminjam_id) {
-            return 'Inventory ini sedang dipinjam karyawan lain, jadi tidak bisa dipasang ke barang utama yang dipinjam karyawan berbeda.';
+        // jangan menimpa pemakai lain: kelengkapan yang sedang dipakai karyawan A tidak boleh
+        // dipasang ke barang utama yang dipakai karyawan B
+        if ($parent->status === 'dipakai' && $this->status === 'dipakai' && $this->peminjam_id !== $parent->peminjam_id) {
+            return 'Inventory ini sedang dipakai karyawan lain, jadi tidak bisa dipasang ke barang utama yang dipakai karyawan berbeda.';
         }
 
         return null;

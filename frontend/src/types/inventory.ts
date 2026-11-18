@@ -3,7 +3,7 @@ import type { Option } from './user';
 // status inventory; `key` = nilai di database, `dot` = warna titik di Badge
 export const INVENTORY_STATUSES = [
   { key: 'tersedia', label: 'Tersedia', dot: 'bg-success' },
-  { key: 'dipinjam', label: 'Dipinjam', dot: 'bg-info' },
+  { key: 'dipakai', label: 'Dipakai', dot: 'bg-info' },
   { key: 'menunggu_perbaikan', label: 'Menunggu Perbaikan', dot: 'bg-warn' },
   { key: 'diperbaiki', label: 'Sedang Diperbaiki', dot: 'bg-accent' },
   { key: 'rusak_berat', label: 'Rusak Berat', dot: 'bg-danger' },
@@ -36,7 +36,7 @@ export interface InventoryRow {
   kategori: Option | null;
   perusahaan: Option | null;
   supplier: Option | null;
-  peminjam_id: number | null; // karyawan yang sedang meminjam (barang utama dan kelengkapannya sama)
+  peminjam_id: number | null; // karyawan yang sedang memakai (barang utama dan kelengkapannya sama)
   parent: { id: number; kode_inventory: string; nama: string | null } | null;
   peminjam: { id: number; name: string } | null;
   children_count?: number; // > 0 = inventory ini barang utama (dari withCount di server)

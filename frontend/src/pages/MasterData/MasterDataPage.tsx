@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { Building2, Layers, Package, Store, Tags, Truck, Users } from 'lucide-react';
+import { BriefcaseBusiness, Building2, Package, Tags, Truck, Users, Warehouse } from 'lucide-react';
 import SegmentedTabs from '../../components/ui/SegmentedTabs';
 import DataUser from './DataUser/DataUser';
 import CabangPage from './Cabang/CabangPage';
@@ -11,13 +11,13 @@ import PerusahaanPage from './Perusahaan/PerusahaanPage';
 
 // tab utama Master Data (pindah antar halaman)
 const TABS = [
-  { key: 'data-user', label: 'Data User', icon: Users },
-  { key: 'perusahaan', label: 'Perusahaan', icon: Building2 },
-  { key: 'departemen', label: 'Departemen', icon: Layers },
-  { key: 'cabang', label: 'Cabang', icon: Store },
+  { key: 'inventory', label: 'Inventory', icon: Package },
   { key: 'kategori', label: 'Kategori', icon: Tags },
   { key: 'supplier', label: 'Supplier', icon: Truck },
-  { key: 'inventory', label: 'Inventory', icon: Package },
+  { key: 'data-user', label: 'Data User', icon: Users },
+  { key: 'perusahaan', label: 'Perusahaan', icon: Building2 },
+  { key: 'departemen', label: 'Departemen', icon: BriefcaseBusiness },
+  { key: 'cabang', label: 'Cabang', icon: Warehouse },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];

@@ -30,7 +30,7 @@ import ExportModal, { type ExportColumn, type ExportOptions } from '../../../com
 const TABS = [
   { key: 'semua', label: 'Semua Status', icon: Boxes },
   { key: 'tersedia', label: 'Tersedia', icon: CircleCheck },
-  { key: 'dipinjam', label: 'Dipinjam', icon: UserCheck },
+  { key: 'dipakai', label: 'Dipakai', icon: UserCheck },
   { key: 'menunggu_perbaikan', label: 'Menunggu Perbaikan', icon: Clock },
   { key: 'diperbaiki', label: 'Sedang Diperbaiki', icon: Wrench },
   { key: 'rusak_berat', label: 'Rusak Berat', icon: OctagonAlert },
@@ -274,7 +274,7 @@ export default function InventoryPage() {
     setDetailOpen(true);
   };
 
-  // cetak ulang struk barang utama yang sedang dipinjam
+  // cetak ulang struk barang utama yang sedang dipakai
   const reprintReceipt = async (row: InventoryRow) => {
     if (printingId !== null) return;
     setPrintError('');
@@ -385,8 +385,8 @@ export default function InventoryPage() {
             disabled={i.parent_id !== null || i.status !== 'tersedia'}
             onClick={() => openHandover(i)}
           ><HandHelping size={14} /></button>
-          {/* barang utama yang sedang dipinjam: struk dicetak ulang dengan nomor yang sama, kelengkapan sesuai kondisi terbaru */}
-          {i.status === 'dipinjam' && i.parent_id === null && (
+          {/* barang utama yang sedang dipakai: struk dicetak ulang dengan nomor yang sama, kelengkapan sesuai kondisi terbaru */}
+          {i.status === 'dipakai' && i.parent_id === null && (
             <button
               type="button"
               aria-label="Cetak ulang struk"
@@ -398,17 +398,17 @@ export default function InventoryPage() {
               {printingId === i.id ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
             </button>
           )}
-          {/* barang utama yang sedang dipinjam: kembalikan (butuh nomor penerimaan dari struk serah terima) */}
-          {i.status === 'dipinjam' && i.parent_id === null && (
+          {/* barang utama yang sedang dipakai: kembalikan (butuh nomor penerimaan dari struk serah terima) */}
+          {i.status === 'dipakai' && i.parent_id === null && (
             <button type="button" aria-label="Kembalikan" title="Kembalikan" className={iconBtn} onClick={() => openReturn(i)}><RotateCcw size={14} /></button>
           )}
-          {/* tersedia maupun dipinjam boleh dilaporkan; status lain sudah dilaporkan / diperbaiki / rusak berat / dijual */}
+          {/* tersedia maupun dipakai boleh dilaporkan; status lain sudah dilaporkan / diperbaiki / rusak berat / dijual */}
           <button
             type="button"
             aria-label="Lapor kerusakan"
-            title={i.status === 'tersedia' || i.status === 'dipinjam' ? 'Lapor kerusakan' : 'Hanya inventory berstatus Tersedia atau Dipinjam yang bisa dilaporkan'}
+            title={i.status === 'tersedia' || i.status === 'dipakai' ? 'Lapor kerusakan' : 'Hanya inventory berstatus Tersedia atau Dipakai yang bisa dilaporkan'}
             className={`${iconBtn} hover:text-warn`}
-            disabled={i.status !== 'tersedia' && i.status !== 'dipinjam'}
+            disabled={i.status !== 'tersedia' && i.status !== 'dipakai'}
             onClick={() => openReport(i)}
           ><Wrench size={14} /></button>
           {/* hanya Rusak Berat yang bisa dijual, dan kelengkapan yang masih nempel harus dilepas dulu */}
