@@ -2,6 +2,15 @@ import { api } from '../lib/api';
 import type { Departemen, DepartemenPayload } from '../types/departemen';
 import type { Paginated } from '../types/user';
 
+export interface DepartemenImportResponse {
+  message: string;
+  ditambahkan: number;
+  dipulihkan: number;
+  dilewati: number;
+  jumlah_error: number;
+  errors: string[];
+}
+
 export const departemenService = {
   // GET /departemen?search=...
   async list(page: number, perPage: number, search?: string): Promise<Paginated<Departemen>> {
@@ -26,5 +35,14 @@ export const departemenService = {
   // DELETE /departemen/{id}
   async remove(id: number): Promise<void> {
     await api.delete(`/departemen/${id}`);
+  },
+  
+  async import(file: File): Promise<DepartemenImportResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post<DepartemenImportResponse>('/departemen/import', formData, {
+      timeout: 0,
+    });
+    return data;
   },
 };

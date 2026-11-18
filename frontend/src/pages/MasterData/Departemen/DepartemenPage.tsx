@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Download, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Download, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
 import DataTable, { type Column } from '../../../components/ui/DataTable';
 import SearchField from '../../../components/ui/SearchField';
 import Modal from '../../../components/modal/Modal';
 import ImportModal from '../../../components/modal/ImportModal';
 import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
 import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
-import { departemenService } from '../../../services/departemenService';
+import { departemenService, type DepartemenImportResponse } from '../../../services/departemenService';
 import { transferService } from '../../../services/transferService';
 import { getErrorList, getErrorMessage } from '../../../lib/errors';
 import { saveBlob } from '../../../lib/downloadExport';
@@ -38,6 +38,7 @@ export default function DepartemenPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
   const [importDetails, setImportDetails] = useState<string[]>([]);
+  const [importResult, setImportResult] = useState<DepartemenImportResponse | null>(null);
 
   // export
   const [exportOpen, setExportOpen] = useState(false);
@@ -133,14 +134,15 @@ export default function DepartemenPage() {
     setImportError('');
     setImportDetails([]);
     try {
-      await transferService.import('/departemen', file);
+      const res = await departemenService.import(file);
       setImportOpen(false);
+      setImportResult(res);
       if (page === 1) setReloadKey((k) => k + 1);
       else setPage(1); // setPage sudah memicu muat ulang
     } catch (err) {
+      // di sini hanya masalah pada file itu sendiri (format salah, terlalu besar, dst)
       const details = getErrorList(err, 'file');
-      // banyak pesan -> tampilkan sebagai daftar
-      setImportError(details.length > 1 ? 'Import dibatalkan. Perbaiki baris berikut lalu coba lagi.' : getErrorMessage(err));
+      setImportError(details.length > 1 ? 'Perbaiki masalah berikut lalu coba lagi.' : getErrorMessage(err));
       setImportDetails(details.length > 1 ? details : []);
     } finally {
       setImporting(false);
@@ -195,6 +197,35 @@ export default function DepartemenPage() {
           </button>
         </div>
       </div>
+
+      {importResult && (
+        <div className="rounded-lg bg-selected px-3 py-2 text-xs text-ink">
+          <div className="flex items-start justify-between gap-3">
+            <p>
+              {importResult.message} Ditambahkan{' '}
+              <span className="font-semibold">{importResult.ditambahkan}</span>, dilewati{' '}
+              <span className="font-semibold">{importResult.dilewati}</span>
+              {importResult.jumlah_error > 0 && (
+                <>, error <span className="font-semibold text-danger">{importResult.jumlah_error}</span></>
+              )}
+              .
+            </p>
+            <button
+              type="button"
+              aria-label="Tutup"
+              className="cursor-pointer text-ink-muted hover:text-ink"
+              onClick={() => setImportResult(null)}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          {importResult.errors.length > 0 && (
+            <ul className="mt-1.5 max-h-32 list-disc space-y-0.5 overflow-y-auto pl-4 text-danger">
+              {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3">
         <SearchField value={query} onChange={setQuery} placeholder="Cari nama departemen..." />
