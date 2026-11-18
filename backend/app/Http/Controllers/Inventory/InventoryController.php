@@ -24,14 +24,20 @@ class InventoryController extends Controller
     // relasi yang ikut dimuat supaya tabel bisa menampilkan namanya
     private const WITH = ['kategori:id,nama', 'perusahaan:id,nama', 'supplier:id,nama', 'parent:id,kode_inventory,nama', 'peminjam:id,name'];
 
-    // GET /inventory?page=1&per_page=10&status=tersedia&search=...
+    // GET /inventory?page=1&per_page=10&status=tersedia&search=...&sort_by=kode_inventory&sort_dir=asc
     public function index(Request $request): JsonResponse
     {
         $perPage = min($request->integer('per_page', 10), 100);
         $search = $request->string('search')->trim()->lower()->toString();
         $status = $request->string('status')->toString();
 
-        $data = Inventory::with(self::WITH)
+        // kolom yang diizinkan untuk sorting
+        $allowedSorts = ['kode_inventory', 'nama', 'kategori', 'merk', 'jumlah', 'link', 'peminjam', 'status'];
+        $requestedSort = $request->string('sort_by')->toString();
+        $sortBy = in_array($requestedSort, $allowedSorts, true) ? $requestedSort : 'kode_inventory';
+        $sortDir = $request->string('sort_dir')->lower()->toString() === 'desc' ? 'desc' : 'asc';
+
+        $query = Inventory::with(self::WITH)
             ->withCount('children') // children_count > 0 = inventory ini barang utama
             ->when(in_array($status, Inventory::STATUSES, true), fn ($q) => $q->where('status', $status))
             ->when($search !== '', function ($q) use ($search) {
@@ -42,13 +48,38 @@ class InventoryController extends Controller
                     ->orWhereRaw('LOWER(nama) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(merk) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(type) LIKE ?', [$like])
+                    ->orWhereRaw("LOWER(CONCAT_WS(' ', merk, type)) LIKE ?", [$like])
                     ->orWhereRaw('LOWER(serial_number) LIKE ?', [$like])
+                    ->orWhereHas('kategori', fn ($k) => $k->whereRaw('LOWER(nama) LIKE ?', [$like]))
+                    ->orWhereHas('peminjam', fn ($p) => $p->whereRaw('LOWER(name) LIKE ?', [$like]))
                 );
-            })
-            ->orderByDesc('kode_inventory')
-            ->paginate($perPage);
+            });
 
-        return response()->json($data);
+        // terapkan sorting (kolom relasi pakai subquery agar tidak bentrok dengan paginate)
+        match ($sortBy) {
+            'kategori' => $query
+                ->orderByRaw('kategori_id IS NULL ASC')
+                ->orderBy(
+                    Kategori::select('nama')->whereColumn('kategori.id', 'inventory.kategori_id'),
+                    $sortDir
+                ),
+            'peminjam' => $query
+                ->orderByRaw('peminjam_id IS NULL ASC')
+                ->orderBy(
+                    DB::table('users')->select('name')->whereColumn('users.id', 'inventory.peminjam_id'),
+                    $sortDir
+                ),
+            'link' => $query
+                ->orderByRaw('(parent_id IS NULL AND NOT EXISTS (SELECT 1 FROM inventory AS c WHERE c.parent_id = inventory.id)) ASC')
+                ->orderBy(
+                    DB::table('inventory as parent_inv')->select('kode_inventory')->whereColumn('parent_inv.id', 'inventory.parent_id'),
+                    $sortDir
+                )
+                ->orderBy('children_count', $sortDir),
+            default => $query->orderBy($sortBy, $sortDir),
+        };
+
+        return response()->json($query->paginate($perPage));
     }
 
     // GET /inventory/options -> isi dropdown di form inventory
@@ -81,12 +112,12 @@ class InventoryController extends Controller
                     ->orWhereRaw('LOWER(nama) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(merk) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(type) LIKE ?', [$like])
+                    ->orWhereRaw("LOWER(CONCAT_WS(' ', merk, type)) LIKE ?", [$like])
                     ->orWhereRaw('LOWER(serial_number) LIKE ?', [$like])
                 );
             })
             ->withCount('children')
             ->orderBy('kode_inventory')
-            ->limit(30)
             ->get(['id', 'kode_inventory', 'nama', 'merk', 'type']);
 
         return response()->json($data);
@@ -248,12 +279,12 @@ class InventoryController extends Controller
         }
 
         return response()->json([
-            'message'     => 'Import selesai.',
-            'ditambahkan' => $ditambahkan,
-            'dipulihkan'  => $dipulihkan,
-            'dilewati'    => $dilewati,
+            'message'      => 'Import selesai.',
+            'ditambahkan'  => $ditambahkan,
+            'dipulihkan'   => $dipulihkan,
+            'dilewati'     => $dilewati,
             'jumlah_error' => count($errors),
-            'errors'      => $errors,
+            'errors'       => $errors,
         ]);
     }
 

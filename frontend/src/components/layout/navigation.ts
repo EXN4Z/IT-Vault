@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Database, LayoutDashboard, Package, Users, Building2, Layers, type LucideIcon, Store, Tags, Truck, Wrench } from 'lucide-react';
+import { ArrowLeftRight, Database, LayoutDashboard, Package, Users, Building2, Layers, type LucideIcon, Store, Tags, Truck, MonitorCog } from 'lucide-react';
 
 // ===== tipe data menu =====
 
@@ -29,7 +29,7 @@ export const navItems: NavItem[] = [
     section: 'menu',
     matchPrefix: '/transaksi',
     children: [
-      { label: 'Penanganan Inventory', path: '/transaksi/penanganan', icon: Wrench },
+      { label: 'Penanganan Inventory', path: '/transaksi/penanganan', icon: MonitorCog },
     ],
   },
 
@@ -40,13 +40,13 @@ export const navItems: NavItem[] = [
     matchPrefix: '/master-data',
     children: [
       // path boleh pakai query (?tab=...); route yang didaftarin di App.tsx cuma /master-data
+      { label: 'Inventory', path: '/master-data?tab=inventory', icon: Package },
+      { label: 'Kategori', path: '/master-data?tab=kategori', icon: Tags },
+      { label: 'Supplier', path: '/master-data?tab=supplier', icon: Truck },
       { label: 'Data User', path: '/master-data?tab=data-user', icon: Users },
       { label: 'Perusahaan', path: '/master-data?tab=perusahaan', icon: Building2 },
       { label: 'Departemen', path: '/master-data?tab=departemen', icon: Layers },
       { label: 'Cabang', path: '/master-data?tab=cabang', icon: Store },
-      { label: 'Kategori', path: '/master-data?tab=kategori', icon: Tags },
-      { label: 'Supplier', path: '/master-data?tab=supplier', icon: Truck },
-      { label: 'Inventory', path: '/master-data?tab=inventory', icon: Package },
     ],
   },
 ];

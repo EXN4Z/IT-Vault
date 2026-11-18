@@ -11,11 +11,26 @@ export interface InventoryImportResult {
   jumlah_error: number;
   errors: string[];
 }
+
 export const inventoryService = {
-  // GET /inventory?status=tersedia&search=...
-  async list(page: number, perPage: number, status?: string, search?: string): Promise<Paginated<InventoryRow>> {
+  // GET /inventory?status=tersedia&search=...&sort_by=kode_inventory&sort_dir=asc
+  async list(
+    page: number,
+    perPage: number,
+    status?: string,
+    search?: string,
+    sortBy?: string,
+    sortDir?: 'asc' | 'desc',
+  ): Promise<Paginated<InventoryRow>> {
     const { data } = await api.get<Paginated<InventoryRow>>('/inventory', {
-      params: { page, per_page: perPage, status, search: search || undefined }, // undefined -> nggak ikut dikirim
+      params: {
+        page,
+        per_page: perPage,
+        status,
+        search: search || undefined, // undefined -> nggak ikut dikirim
+        sort_by: sortBy || undefined,
+        sort_dir: sortDir || undefined,
+      },
     });
     return data;
   },
@@ -74,7 +89,7 @@ export const inventoryService = {
   async remove(id: number): Promise<void> {
     await api.delete(`/inventory/${id}`);
   },
-  
+
   async import(file: File): Promise<InventoryImportResult> {
     const formData = new FormData();
     formData.append('file', file);
@@ -84,8 +99,7 @@ export const inventoryService = {
     return data;
   },
 
-  // GET /inventory/export -> file (blob)
-// POST /inventory/export -> file (blob)
+  // POST /inventory/export -> file (blob)
   async export(
     opts: ExportOptions & { page: number; perPage: number; status?: string; search?: string },
   ): Promise<Blob> {
@@ -105,4 +119,3 @@ export const inventoryService = {
     return data;
   },
 };
-

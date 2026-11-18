@@ -210,13 +210,13 @@ export default function UsersPage() {
     { key: 'nama', header: 'Nama', cell: (u) => <span className="truncate font-semibold">{u.name}</span> },
     { key: 'email', header: 'Email', width: 'minmax(0,1.3fr)', cell: (u) => <span className="truncate">{u.email}</span> },
     {
-      key: 'role', header: 'Role', width: '90px', align: 'center',
+      key: 'role', header: 'Role', width: '90px', align: 'left',
       cell: (u) => (
         <Badge dot={u.role?.nama.toLowerCase() === 'admin' ? 'bg-warn' : 'bg-info'}>{u.role?.nama ?? '-'}</Badge>
       ),
     },
     {
-      key: 'status', header: 'Status', width: '90px', align: 'center',
+      key: 'status', header: 'Status', width: '90px', align: 'left',
       cell: (u) => {
         const aktif = u.status === 'aktif';
         return <Badge dot={aktif ? 'bg-success' : 'bg-ink-muted'}>{aktif ? 'Aktif' : 'Nonaktif'}</Badge>;

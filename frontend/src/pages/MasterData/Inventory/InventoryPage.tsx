@@ -3,13 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import {
   BadgeDollarSign, Boxes, CircleCheck, Clock, Eye, HandHelping, Link2, Loader2, OctagonAlert, Pencil, Plus, Printer, RotateCcw, Tag, Trash2, Unlink, UserCheck, Wrench, Upload, Download
 } from 'lucide-react';
-import DataTable, { type Column } from '../../../components/ui/DataTable';
+import DataTable, { type Column, type TableSort } from '../../../components/ui/DataTable';
 import Badge from '../../../components/ui/Badge';
 import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
-import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
-import { inventoryService, type InventoryImportResult  } from '../../../services/inventoryService';
+import { btnCreate, btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
+import { inventoryService, type InventoryImportResult } from '../../../services/inventoryService';
 import { peminjamanService } from '../../../services/peminjamanService';
 import { getErrorMessage } from '../../../lib/errors';
 import { openReceiptWindow, writeReceipt } from '../../../lib/receipt';
@@ -24,8 +24,6 @@ import PenangananLaporModal from './PenangananLaporModal';
 import { blobErrorMessage, downloadBlob } from '../../../lib/downloadExport';
 import ImportModal from '../../../components/modal/ImportModal';
 import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
-
-const PER_PAGE = 10;
 
 // tab berdasarkan status; 'semua' = tanpa filter
 const TABS = [
@@ -65,6 +63,8 @@ export default function InventoryPage() {
   const [query, setQuery] = useState(''); // isi kolom cari (langsung)
   const [search, setSearch] = useState(''); // isi kolom cari yang dikirim ke server (ditunda)
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [sort, setSort] = useState<TableSort | null>({ key: 'kode_inventory', dir: 'asc' });
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
@@ -133,10 +133,20 @@ export default function InventoryPage() {
     setPage(1);
   };
 
+  const handlePerPageChange = (nextPerPage: number) => {
+    setPerPage(nextPerPage);
+    setPage(1);
+  };
+
+  const handleSortChange = (nextSort: TableSort) => {
+    setSort(nextSort);
+    setPage(1);
+  };
+
   const openImport = () => {
-  setImportError('');
-  setImportDetails([]);
-  setImportOpen(true);
+    setImportError('');
+    setImportDetails([]);
+    setImportOpen(true);
   };
 
   const handleImport = async (file: File) => {
@@ -171,7 +181,7 @@ export default function InventoryPage() {
       const blob = await inventoryService.export({
         ...opts,
         page,
-        perPage: PER_PAGE,
+        perPage,
         status: tab === 'semua' ? undefined : tab,
         search,
       });
@@ -183,6 +193,7 @@ export default function InventoryPage() {
       setExporting(false);
     }
   };
+
   // tunda pencarian 300ms setelah berhenti mengetik
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -192,7 +203,7 @@ export default function InventoryPage() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // ambil data saat halaman / tab / pencarian berganti atau tabel perlu dimuat ulang
+  // ambil data saat halaman / limit / urutkan / tab / pencarian berganti atau tabel perlu dimuat ulang
   useEffect(() => {
     let ignore = false; // kalau request lama selesai belakangan, hasilnya dibuang
     setLoading(true);
@@ -200,7 +211,7 @@ export default function InventoryPage() {
     setRows([]);
     setTotal(0);
     inventoryService
-      .list(page, PER_PAGE, tab === 'semua' ? undefined : tab, search)
+      .list(page, perPage, tab === 'semua' ? undefined : tab, search, sort?.key, sort?.dir)
       .then((res) => {
         if (ignore) return;
         setRows(res.data);
@@ -210,7 +221,7 @@ export default function InventoryPage() {
       .catch((err) => { if (!ignore) setError(getErrorMessage(err)); })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
-  }, [page, tab, search, reloadKey]);
+  }, [page, perPage, tab, search, sort, reloadKey]);
 
   const openCreate = () => {
     setEditing(null);
@@ -305,16 +316,16 @@ export default function InventoryPage() {
   };
 
   const columns: Column<InventoryRow>[] = [
-    { key: 'kode', header: 'Kode', width: '120px', cell: (i) => <span className="truncate font-semibold">{i.kode_inventory}</span> },
-    { key: 'nama', header: 'Nama', width: 'minmax(0,1.3fr)', cell: (i) => <span className="truncate font-semibold">{i.nama ?? '-'}</span> },
-    { key: 'kategori', header: 'Kategori', width: 'minmax(0,1fr)', cell: (i) => <span className="truncate">{i.kategori?.nama ?? '-'}</span> },
+    { key: 'kode_inventory', header: 'Kode', width: '120px', sortable: true, cell: (i) => <span className="truncate font-semibold">{i.kode_inventory}</span> },
+    { key: 'nama', header: 'Nama', width: 'minmax(0,1.3fr)', sortable: true, cell: (i) => <span className="truncate font-semibold">{i.nama ?? '-'}</span> },
+    { key: 'kategori', header: 'Kategori', width: 'minmax(0,1fr)', sortable: true, cell: (i) => <span className="truncate">{i.kategori?.nama ?? '-'}</span> },
     {
-      key: 'merk', header: 'Merk', width: 'minmax(0,1fr)',
+      key: 'merk', header: 'Merk', width: 'minmax(0,1fr)', sortable: true,
       cell: (i) => <span className="truncate">{[i.merk, i.type].filter(Boolean).join(' ') || '-'}</span>,
     },
-    { key: 'jumlah', header: 'Jumlah', width: '60px', align: 'center', cell: (i) => <span>{i.jumlah}</span> },
+    { key: 'jumlah', header: 'Jumlah', width: '75px', align: 'center', sortable: true, cell: (i) => <span>{i.jumlah}</span> },
     {
-      key: 'link', header: 'Link', width: 'minmax(0,1fr)',
+      key: 'link', header: 'Link', width: 'minmax(0,1fr)', sortable: true,
       cell: (i) => {
         if (i.parent) return <span className="truncate text-ink-soft">{i.parent.kode_inventory}</span>;
         if ((i.children_count ?? 0) > 0) return <span className="truncate text-ink-soft">{i.children_count} UNIT</span>;
@@ -322,11 +333,11 @@ export default function InventoryPage() {
       },
     },
     {
-      key: 'peminjam', header: 'Peminjam', width: 'minmax(0,1fr)',
+      key: 'peminjam', header: 'Peminjam', width: 'minmax(0,1fr)', sortable: true,
       cell: (i) => <span className="truncate">{i.peminjam?.name ?? '-'}</span>,
     },
     {
-      key: 'status', header: 'Status', width: '170px', align: 'center',
+      key: 'status', header: 'Status', width: '170px', align: 'left', sortable: true,
       cell: (i) => {
         const s = INVENTORY_STATUSES.find((x) => x.key === i.status);
         return <Badge dot={s?.dot ?? 'bg-ink-muted'}>{s?.label ?? i.status}</Badge>;
@@ -468,7 +479,7 @@ export default function InventoryPage() {
 
         {printError && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{printError}</p>}
         <SegmentedTabs tabs={TABS} value={tab} onChange={changeTab} />
-        <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, merk, type, atau serial number..." />
+        <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, kategori, merk, type, serial number, atau peminjam..." />
 
         {/* counter data */}
         <p className="text-[11px] text-ink-muted">
@@ -487,7 +498,16 @@ export default function InventoryPage() {
           rowKey={(i) => i.id}
           loading={loading}
           emptyText={error || 'Belum ada inventory.'}
-          pagination={{ page, pageCount, onPageChange: setPage }}
+          minWidth={1050}
+          sort={sort}
+          onSortChange={handleSortChange}
+          pagination={{
+            page,
+            pageCount,
+            onPageChange: setPage,
+            perPage,
+            onPerPageChange: handlePerPageChange,
+          }}
         />
       </div>
 

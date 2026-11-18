@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Eye, HandHelping, ImageOff, Link2, Loader2, Printer, RotateCcw, Tag, Unlink, Wrench } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
 import Badge from '../../../components/ui/Badge';
-import Pagination from '../../../components/ui/Pagination';
+import { Pagination } from '../../../components/ui/DataTable';
 import { btnOutline } from '../../../components/ui/buttonStyles';
 import { inventoryService } from '../../../services/inventoryService';
 import { peminjamanService } from '../../../services/peminjamanService';
