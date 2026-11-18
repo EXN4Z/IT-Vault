@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, Vault } from 'lucide-react';
+import { Bell, BellRing, ChevronDown, LogOut, Vault } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isChildActive, isItemActive, navItems, type NavItem } from './navigation';
 
@@ -26,12 +26,15 @@ interface SidebarProps {
 // SIDEBAR: rail ikon (48px, selalu tampil) + panel menu (248px, bisa ditutup)
 // =============================================================================
 export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel }: SidebarProps) {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
 
   // buka/tutup dropdown hasil klik user; kalau belum pernah diklik, ikut status aktif (URL)
   const [dropdownOverrides, setDropdownOverrides] = useState<Record<string, boolean>>({});
+
+  // state lokal sementara untuk push subscription (backend menyusul)
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const menuItems = navItems.filter((item) => item.section === 'menu');
   const systemItems = navItems.filter((item) => item.section === 'sistem');
@@ -41,6 +44,11 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
 
   const toggleDropdown = (item: NavItem) =>
     setDropdownOverrides((prev) => ({ ...prev, [item.label]: !isDropdownOpen(item) }));
+
+  const handleTogglePush = () => {
+    // TODO: hubungkan dengan PushManager / endpoint subscribe backend
+    setIsSubscribed((prev) => !prev);
+  };
 
   // pindah halaman, lalu tutup drawer (khusus mobile)
   const goTo = (path: string) => {
@@ -142,7 +150,7 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
         </nav>
 
         {/* =================================================================
-            SIDEBAR PANEL: brand, daftar menu, dan footer user
+            SIDEBAR PANEL: brand, daftar menu, dan footer
             (lebar menyusut ke 0 di desktop saat ditutup)
             ================================================================= */}
         <div
@@ -171,14 +179,31 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
               )}
             </nav>
 
-            {/* footer: info user + tombol keluar */}
-            <div className="border-t border-line p-3">
-              <div className="mb-2 flex items-center gap-2.5 px-1.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">{user?.name}</p>
-                  <p className="truncate text-xs text-ink-muted">{user?.email}</p>
-                </div>
-              </div>
+            {/* footer: push subscription + tombol keluar */}
+            <div className="space-y-1 border-t border-line p-3">
+              <button
+                type="button"
+                aria-pressed={isSubscribed}
+                onClick={handleTogglePush}
+                className={`${rowBase} justify-between ${
+                  isSubscribed ? 'bg-selected text-ink font-semibold' : rowIdle
+                }`}
+              >
+                <span className="flex items-center gap-2.5 truncate">
+                  {isSubscribed ? <BellRing size={16} /> : <Bell size={16} />}
+                  <span className="truncate">Notifikasi</span>
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    isSubscribed
+                      ? 'bg-ink text-canvas'
+                      : 'bg-hover text-ink-muted'
+                  }`}
+                >
+                  {isSubscribed ? 'Aktif' : 'Mati'}
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={logout}

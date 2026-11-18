@@ -182,7 +182,7 @@ export default function Topbar({ onTogglePanel }: TopbarProps) {
               <div className="border-b border-line px-4 py-2.5 text-sm font-semibold text-ink">
                 Notifikasi
               </div>
-              <p className="px-4 py-8 text-center text-sm text-ink-muted">Belum ada notifikasi.</p>
+              <p className="px-4 py-8 text-center text-sm text-ink-muted">Belum ada notifikasi masuk.</p>
             </div>
           )}
         </div>
