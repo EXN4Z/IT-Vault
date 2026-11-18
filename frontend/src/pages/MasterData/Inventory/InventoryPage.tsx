@@ -480,7 +480,7 @@ export default function InventoryPage() {
 
         {printError && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{printError}</p>}
         <SegmentedTabs tabs={TABS} value={tab} onChange={changeTab} />
-        <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, kategori, merk, type, serial number, atau peminjam..." />
+        <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, kategori, merk, type, serial number, atau pemakai..." />
 
         {/* counter data */}
         <p className="text-[11px] text-ink-muted">

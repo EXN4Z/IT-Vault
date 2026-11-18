@@ -23,13 +23,13 @@ import type { JenisFotoLaporan, LaporanFotoItem } from '../../../types/laporan';
 
 const FILTER_TABS = [
   { key: 'semua', label: 'Semua', icon: Images },
-  { key: 'peminjaman', label: 'Pemakai', icon: ArrowUpRight },
+  { key: 'pemakai', label: 'Pemakai', icon: ArrowUpRight },
   { key: 'pengembalian', label: 'Pengembalian', icon: ArrowDownLeft },
   { key: 'rusak', label: 'Rusak', icon: AlertTriangle },
 ] as const;
 
 const BADGE_STYLE: Record<LaporanFotoItem['jenis'], string> = {
-  peminjaman: 'bg-blue-600 text-white border-blue-700',
+  pemakai: 'bg-blue-600 text-white border-blue-700',
   pengembalian: 'bg-emerald-600 text-white border-emerald-700',
   rusak: 'bg-red-600 text-white border-red-700',
 };
@@ -161,7 +161,7 @@ export default function FotoInventoryPage() {
         <div>
           <h1 className="text-lg font-bold text-ink">Laporan Foto Inventory</h1>
           <p className="text-xs text-ink-muted">
-            Dokumentasi foto barang saat peminjaman, pengembalian, dan laporan kerusakan
+            Dokumentasi foto barang saat pemakaian, pengembalian, dan laporan kerusakan
           </p>
         </div>
 
@@ -208,7 +208,7 @@ export default function FotoInventoryPage() {
             <ImageOff size={32} className="mb-2 text-ink-muted" />
             <p className="text-sm font-medium text-ink">Belum ada dokumentasi foto</p>
             <p className="mt-1 text-xs text-ink-muted">
-              Foto dari proses peminjaman dan laporan kerusakan akan otomatis tampil di sini.
+              Foto dari proses pemakaian dan laporan kerusakan akan otomatis tampil di sini.
             </p>
           </div>
         ) : (
@@ -382,7 +382,7 @@ export default function FotoInventoryPage() {
               </div>
               <div>
                 <p className="text-ink-muted">
-                  {selected.jenis === 'rusak' ? 'Dilaporkan Oleh' : 'Peminjam'}
+                  {selected.jenis === 'rusak' ? 'Dilaporkan Oleh' : 'Pemakai'}
                 </p>
                 <p className="mt-0.5 font-semibold text-ink">{selected.pelaku}</p>
               </div>

@@ -250,7 +250,7 @@ export default function PenangananSelesaiModal({ open, penanganan, onClose, onSa
         <p className="text-[11px] text-ink-muted">
           {rusakBerat
             ? 'Status barang menjadi Rusak Berat. Harga jasa dan biaya komponen boleh dikosongkan (di struk tampil "-"). Nomor struk dibuat otomatis dan struk langsung terbuka.'
-            : 'Status barang kembali ke Dipinjam (kalau masih dipegang peminjam) atau Tersedia. Nomor struk dibuat otomatis dan struk langsung terbuka.'}
+            : 'Status barang kembali ke Dipakai (kalau masih dipegang pemakai) atau Tersedia. Nomor struk dibuat otomatis dan struk langsung terbuka.'}
         </p>
       </form>
     </Modal>

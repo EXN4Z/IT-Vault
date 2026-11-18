@@ -38,7 +38,7 @@ export interface InventoryRow {
   supplier: Option | null;
   pemakai_saat_ini_id: number | null; // karyawan yang sedang memakai (barang utama dan kelengkapannya sama)
   parent: { id: number; kode_inventory: string; nama: string | null } | null;
-  pemakai_saat_ini?: { id: number; name: string } | null;
+  pemakai_saat_ini: { id: number; name: string } | null;
   children_count?: number; // > 0 = inventory ini barang utama (dari withCount di server)
 }
 

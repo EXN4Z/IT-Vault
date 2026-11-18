@@ -151,7 +151,7 @@ export default function InventoryReturnModal({ open, inventory, onClose, onSaved
 
           {info && (
             <p className="rounded-lg bg-hover px-3 py-2 text-xs text-ink-soft">
-              Dipinjam <span className="font-semibold text-ink">{info.peminjam.name}</span> sejak {formatTanggal(info.tanggal_penerimaan)}.
+              Dipakai oleh <span className="font-semibold text-ink">{info.pemakai.name}</span> sejak {formatTanggal(info.tanggal_penerimaan)}.
               Kelengkapan ({info.kelengkapan.length}) ikut dikembalikan.
             </p>
           )}
