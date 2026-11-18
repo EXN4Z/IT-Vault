@@ -1,0 +1,13 @@
+git add backend/app/Exports/DepartemenExport.php
+git add backend/app/Exports/KategoriExport.php
+git add backend/app/Exports/SupplierExport.php
+git add backend/app/Imports/KategoriImport.php
+git add backend/app/Imports/SupplierImport.php
+git add backend/app/Http/Controllers/Departemen/DepartemenController.php
+git add backend/app/Http/Controllers/Kategori/KategoriController.php
+git add backend/app/Http/Controllers/Supplier/SupplierController.php
+git add backend/routes/api.php
+git add frontend/src/pages/MasterData/Departemen/DepartemenPage.tsx
+git add frontend/src/pages/MasterData/Inventory/InventoryPage.tsx
+git add frontend/src/services/departemenService.ts
+git add frontend/src/services/transferService.ts

@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::create('cabang', function (Blueprint $table) {
             $table->id();
             $table->string('nama', 150);
-            $table->text('alamat')->nullable()->unique();
-            $table->string('link', 255)->nullable()->unique();
+            $table->text('alamat')->nullable(); // alamat dan link cabang boleh sama, jadi tidak unique
+            $table->string('link', 255)->nullable();
             $table->string('telepon', 30)->nullable();
             $table->timestamps();
         });

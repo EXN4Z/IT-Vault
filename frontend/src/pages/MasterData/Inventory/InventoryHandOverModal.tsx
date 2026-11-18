@@ -199,7 +199,7 @@ export default function InventoryHandoverModal({ open, inventory, onClose, onSav
           </FormField>
 
           <PhotoUploadField
-            label="Foto Barang Bukti Peminjaman"
+            label="Foto Barang Bukti Pemakai"
             required
             max={PHOTO_COUNT}
             files={files}

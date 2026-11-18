@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Laporan;
 
 use App\Http\Controllers\Controller;
-use App\Models\Peminjaman;
+use App\Models\Pemakai;
 use App\Models\Penanganan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 
 class LaporanFotoController extends Controller
 {
-    // GET /api/laporan/foto-inventory?jenis=semua|peminjaman|pengembalian|rusak&search=
+    // GET /api/laporan/foto-inventory?jenis=semua|pemakai|pengembalian|rusak&search=
     public function index(Request $request): JsonResponse
     {
         $jenis = $request->string('jenis')->toString();
@@ -19,9 +19,9 @@ class LaporanFotoController extends Controller
 
         $items = collect();
 
-        // 1. Ambil foto dari transaksi Peminjaman (Serah Terima)
-        if ($jenis === '' || $jenis === 'semua' || $jenis === 'peminjaman') {
-            $peminjamanQuery = Peminjaman::with([
+        // 1. Ambil foto dari transaksi Pemakai (Serah Terima)
+        if ($jenis === '' || $jenis === 'semua' || $jenis === 'pemakai') {
+            $peminjamanQuery = Pemakai::with([
                 'inventory:id,kode_inventory,nama,merk,type,warna',
                 'peminjam:id,name,nik',
             ])
@@ -47,8 +47,8 @@ class LaporanFotoController extends Controller
 
                 $items->push([
                     'id' => 'pinjam-'.$p->id,
-                    'jenis' => 'peminjaman',
-                    'jenis_label' => 'Peminjaman',
+                    'jenis' => 'pemakai',
+                    'jenis_label' => 'Pemakai',
                     'referensi' => $p->nomor_penerimaan,
                     'tanggal' => $p->tanggal_penerimaan?->format('Y-m-d'),
                     'waktu' => $p->created_at?->toIso8601String(),

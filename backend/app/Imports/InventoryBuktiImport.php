@@ -7,7 +7,7 @@ use App\Models\Inventory;
 use App\Models\Kategori;
 use App\Models\Departemen;
 use App\Models\Supplier;
-use App\Models\Peminjaman;
+use App\Models\Pemakai;
 use App\Models\User;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithCalculatedFormulas;
@@ -375,17 +375,18 @@ class InventoryBuktiImport implements ToCollection, WithCalculatedFormulas
                         $hasilParse = $this->parseKeterangan($keteranganAsli);
 
                         $inventory = Inventory::create(array_merge($infoBukti, [
-                            'kode_inventory'    => $row['kode_inventory'] ?? null,
-                            'nama'              => $namaBarangTrim,
-                            'kategori_id'       => $this->kategoriIdFallback(),
-                            'parent_id'         => null,
-                            'supplier_id'       => $supplierId,
-                            'perusahaan_id'     => $infoBukti['perusahaan_id'] ?? null,
-                            'jumlah'            => $row["jumlah_{$n}"] ?? null,
-                            'keterangan'        => $keteranganAsli,
-                            'serial_number'     => $hasilParse['serial_number'],
-                            'warna'             => $hasilParse['warna'],
-                            'status'            => $statusInventory,
+                            'kode_inventory'            => $row['kode_inventory'] ?? null,
+                            'nama'                      => $namaBarangTrim,
+                            'pemakai_saat_ini_id'       => $penerimaUser?->id,
+                            'kategori_id'               => $this->kategoriIdFallback(),
+                            'parent_id'                 => null,
+                            'supplier_id'               => $supplierId,
+                            'perusahaan_id'             => $infoBukti['perusahaan_id'] ?? null,
+                            'jumlah'                    => $row["jumlah_{$n}"] ?? null,
+                            'keterangan'                => $keteranganAsli,
+                            'serial_number'             => $hasilParse['serial_number'],
+                            'warna'                     => $hasilParse['warna'],
+                            'status'                    => $statusInventory,
                         ]));
 
                         $indukTerakhir = $inventory;
@@ -558,18 +559,19 @@ class InventoryBuktiImport implements ToCollection, WithCalculatedFormulas
                             $row['type'] ?? null,
                             $namaBarang,
                         ),
-                        'merk'              => $this->nilaiAtauNull($row['merk'] ?? null),
-                        'type'              => $this->nilaiAtauNull($row['type'] ?? null),
-                        'parent_id'         => null,
-                        'supplier_id'       => $supplierId,
-                        'jumlah'            => $row['jumlah'] ?? null,
-                        'keterangan'        => $row['keterangan'] ?? null,
-                        'serial_number'     => $serialFile,
-                        'warna'             => $this->nilaiAtauNull($row['warna'] ?? null),
-                        'status'            => $statusFile,
-                        'perusahaan_id'     => $this->perusahaanIdDariSingkatan($row['perusahaan'] ?? null, $index + 1),
-                        'tanggal_input'     => $tanggalInput,
-                        'tanggal_invoice'   => $tanggalInvoice,
+                        'merk'                      => $this->nilaiAtauNull($row['merk'] ?? null),
+                        'type'                      => $this->nilaiAtauNull($row['type'] ?? null),
+                        'parent_id'                 => null,
+                        'supplier_id'               => $supplierId,
+                        'jumlah'                    => $row['jumlah'] ?? null,
+                        'keterangan'                => $row['keterangan'] ?? null,
+                        'serial_number'             => $serialFile,
+                        'warna'                     => $this->nilaiAtauNull($row['warna'] ?? null),
+                        'status'                    => $statusFile,
+                        'pemakai_saat_ini_id'       => $pemakai?->id,
+                        'perusahaan_id'             => $this->perusahaanIdDariSingkatan($row['perusahaan'] ?? null, $index + 1),
+                        'tanggal_input'             => $tanggalInput,
+                        'tanggal_invoice'           => $tanggalInvoice,
                     ];
 
                     // Kode ini milik baris yang sudah dihapus? -> pulihkan
@@ -778,15 +780,16 @@ class InventoryBuktiImport implements ToCollection, WithCalculatedFormulas
         $hasilParse = $this->parseKeterangan($keterangan);
 
         return Inventory::create(array_merge([
-            'parent_id'         => $indukInventory->id,
-            'kategori_id'       => $this->kategoriIdFallback(),
-            'nama'              => $namaBarang,
-            'warna'             => $hasilParse['warna'],
-            'serial_number'     => $hasilParse['serial_number'],
-            'keterangan'        => $keterangan,
-            'supplier_id'       => $supplierId,
-            'perusahaan_id'     => $infoBukti['perusahaan_id'] ?? null,
-            'status'            => $indukInventory->status,
+            'parent_id'             => $indukInventory->id,
+            'kategori_id'           => $this->kategoriIdFallback(),
+            'nama'                  => $namaBarang,
+            'warna'                 => $hasilParse['warna'],
+            'serial_number'         => $hasilParse['serial_number'],
+            'keterangan'            => $keterangan,
+            'supplier_id'           => $supplierId,
+            'perusahaan_id'         => $infoBukti['perusahaan_id'] ?? null,
+            'status'                => $indukInventory->status,
+            'pemakai_saat_ini_id'   => $indukInventory->pemakai_saat_ini_id,
         ], $this->timestampsDariTanggal($infoBukti['tanggal'] ?? null)));
     }
 
@@ -813,9 +816,9 @@ class InventoryBuktiImport implements ToCollection, WithCalculatedFormulas
      */
     private function buatInventoryPemakai(Inventory $item, User $penerimaUser, ?string $tanggalPenerimaan): void
     {
-        $noStruk = $this->generateNoStrukRandom('peminjaman', 'nomor_penerimaan');
+        $noStruk = $this->generateNoStrukRandom('pemakai', 'nomor_penerimaan');
 
-        Peminjaman::create(array_merge([
+        Pemakai::create(array_merge([
             'inventory_id'     => $item->id,
             'user_id'          => $penerimaUser->id,
             'nomor_penerimaan' => $noStruk,

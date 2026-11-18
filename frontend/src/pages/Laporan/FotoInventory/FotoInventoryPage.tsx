@@ -23,7 +23,7 @@ import type { JenisFotoLaporan, LaporanFotoItem } from '../../../types/laporan';
 
 const FILTER_TABS = [
   { key: 'semua', label: 'Semua', icon: Images },
-  { key: 'peminjaman', label: 'Peminjaman', icon: ArrowUpRight },
+  { key: 'peminjaman', label: 'Pemakai', icon: ArrowUpRight },
   { key: 'pengembalian', label: 'Pengembalian', icon: ArrowDownLeft },
   { key: 'rusak', label: 'Rusak', icon: AlertTriangle },
 ] as const;

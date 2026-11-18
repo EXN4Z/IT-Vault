@@ -13,9 +13,9 @@ return new class extends Migration
         Schema::create('inventory_penanganan', function (Blueprint $table) {
             $table->id();
             $table->foreignId('inventory_id')->constrained('inventory')->restrictOnDelete();
-            // peminjaman yang sedang berjalan saat dilaporkan (kosong kalau barang tidak sedang dipinjam)
-            $table->foreignId('peminjaman_id')->nullable()->constrained('peminjaman')->nullOnDelete();
-            $table->foreignId('dilaporkan_oleh_user_id')->nullable()->constrained('users')->nullOnDelete(); // admin atau peminjam
+            // pemakai yang sedang berjalan saat dilaporkan (kosong kalau barang tidak sedang dipakai)
+            $table->foreignId('pemakai_id')->nullable()->constrained('pemakai')->nullOnDelete();
+            $table->foreignId('dilaporkan_oleh_user_id')->nullable()->constrained('users')->nullOnDelete(); // admin atau pemakai
             $table->foreignId('diterima_oleh_user_id')->nullable()->constrained('users')->nullOnDelete(); // admin yang menerima
 
             $table->string('status')->default('dilaporkan'); // dilaporkan, diterima, selesai, dibatalkan

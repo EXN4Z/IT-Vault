@@ -26,7 +26,7 @@ trait GeneratesStrukNumber
     }
 
     /**
-     * Bikin nomor struk ACAK buat peminjaman/pengembalian, format:
+     * Bikin nomor struk ACAK buat pemakai/pengembalian, format:
      * {6 char huruf+angka acak}-{DDMMYY}, mis. K3F9X2-020926.
      * Gak pakai prefix STJ/KBL lagi -- cukup tanggal+tahun biar tetap
      * gampang dilacak kejadiannya kapan, sisanya acak biar simple &

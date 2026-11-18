@@ -132,7 +132,7 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
     // jendela struk dibuka sekarang (masih di dalam klik), kalau nanti dibuka setelah await diblokir browser
     const win = openReceiptWindow();
     try {
-      const receipt = await peminjamanService.strukPengembalian(row.peminjaman_id);
+      const receipt = await peminjamanService.strukPengembalian(row.pemakai_id);
       if (win) writePengembalianReceipt(win, receipt);
       else setError('Jendela struk diblokir browser. Izinkan popup untuk halaman ini, lalu coba lagi.');
     } catch (err) {
@@ -314,7 +314,7 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
             {/* riwayat pemakai & peminjaman */}
             <section>
               <div className="mb-1 flex items-center justify-between">
-                <h3 className={sectionTitle}>Riwayat Pemakai &amp; Peminjaman</h3>
+                <h3 className={sectionTitle}>Riwayat Pemakai &amp; Pemakai</h3>
                 {rows && <span className="text-[11px] text-ink-muted">{rows.length} catatan</span>}
               </div>
 

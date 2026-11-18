@@ -64,7 +64,7 @@ export interface PengembalianReceipt {
 export interface RiwayatRow {
   id: string;
   peran: 'utama' | 'kelengkapan';
-  peminjaman_id: number;
+  pemakai_id: number;
   nomor_penerimaan: string;
   tanggal_penerimaan: string;
   tanggal_pengembalian: string | null;

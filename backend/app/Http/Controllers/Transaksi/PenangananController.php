@@ -7,7 +7,7 @@ use App\Http\Requests\Transaksi\LaporKerusakanRequest;
 use App\Http\Requests\Transaksi\SelesaikanPenangananRequest;
 use App\Http\Requests\Transaksi\TerimaPenangananRequest;
 use App\Models\Inventory;
-use App\Models\Peminjaman;
+use App\Models\Pemakai;
 use App\Models\Penanganan;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -73,7 +73,7 @@ class PenangananController extends Controller
     }
 
     // POST /inventory/{inventory}/lapor-kerusakan (multipart: jenis_kerusakan, keluhan, tanggal_lapor, foto)
-    // -> catat laporan, status inventory jadi menunggu_perbaikan. Peminjaman tidak disentuh.
+    // -> catat laporan, status inventory jadi menunggu_perbaikan. Pemakai tidak disentuh.
     public function store(LaporKerusakanRequest $request, Inventory $inventory): JsonResponse
     {
         $user = $request->user();
@@ -90,7 +90,7 @@ class PenangananController extends Controller
 
                 $penanganan = Penanganan::create([
                     'inventory_id' => $locked->id,
-                    'peminjaman_id' => $this->peminjamanBerjalan($locked)?->id,
+                    'pemakai_id' => $this->peminjamanBerjalan($locked)?->id,
                     'dilaporkan_oleh_user_id' => $user->id,
                     'status' => 'dilaporkan',
                     'status_sebelum' => $locked->status,
@@ -250,14 +250,14 @@ class PenangananController extends Controller
         }
     }
 
-    // peminjaman berjalan yang membawa barang ini: peminjaman sendiri (barang utama) atau milik barang utamanya (kelengkapan)
-    private function peminjamanBerjalan(Inventory $inventory): ?Peminjaman
+    // pemakai berjalan yang membawa barang ini: pemakai sendiri (barang utama) atau milik barang utamanya (kelengkapan)
+    private function peminjamanBerjalan(Inventory $inventory): ?Pemakai
     {
         if ($inventory->peminjam_id === null) {
             return null;
         }
 
-        return Peminjaman::aktif()
+        return Pemakai::aktif()
             ->where('inventory_id', $inventory->parent_id ?? $inventory->id)
             ->latest('id')
             ->first();
@@ -281,7 +281,7 @@ class PenangananController extends Controller
                     'warna' => $p->inventory->warna,
                 ]
                 : null,
-            'peminjaman_id' => $p->peminjaman_id,
+            'pemakai_id' => $p->pemakai_id,
             'status' => $p->status,
             'status_sebelum' => $p->status_sebelum,
             'jenis_kerusakan' => $p->jenis_kerusakan,

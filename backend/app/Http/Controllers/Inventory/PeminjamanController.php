@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\KembalikanRequest;
 use App\Http\Requests\Inventory\SerahkanRequest;
 use App\Models\Inventory;
-use App\Models\Peminjaman;
+use App\Models\Pemakai;
 use App\Models\PeminjamanItem;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +25,7 @@ class PeminjamanController extends Controller
     // label + status (struk serah terima / cetak ulang; status dipakai modal Kembalikan untuk kondisi awal)
     private const STRUK_COLUMNS = ['id', 'kode_inventory', 'nama', 'merk', 'type', 'warna', 'status'];
 
-    // GET /peminjaman/karyawan -> pilihan "Cari Karyawan Peminjam" (karyawan aktif)
+    // GET /pemakai/karyawan -> pilihan "Cari Karyawan Peminjam" (karyawan aktif)
     public function karyawan(): JsonResponse
     {
         return response()->json(
@@ -43,16 +43,16 @@ class PeminjamanController extends Controller
         $paths = [];
 
         try {
-            $peminjaman = DB::transaction(function () use ($request, $data, $inventory, &$paths) {
+            $pemakai = DB::transaction(function () use ($request, $data, $inventory, &$paths) {
                 // kunci barangnya lalu cek ulang, supaya dua admin tidak menyerahkan barang yang sama bersamaan
                 $locked = Inventory::lockForUpdate()->findOrFail($inventory->id);
                 $this->ensureBisaDiserahkan($locked);
 
                 foreach ($request->file('foto') as $file) {
-                    $paths[] = $file->store('peminjaman', 'public');
+                    $paths[] = $file->store('pemakai', 'public');
                 }
 
-                $peminjaman = Peminjaman::create([
+                $pemakai = Pemakai::create([
                     'inventory_id' => $locked->id,
                     'user_id' => $data['user_id'],
                     'nomor_penerimaan' => $this->nomorPenerimaan(),
@@ -74,10 +74,10 @@ class PeminjamanController extends Controller
                         'status' => $child->status === 'tersedia' ? 'dipakai' : $child->status,
                     ]);
 
-                    PeminjamanItem::buka($peminjaman, $child->id);
+                    PeminjamanItem::buka($pemakai, $child->id);
                 }
 
-                return $peminjaman;
+                return $pemakai;
             });
         } catch (Throwable $e) {
             // transaksi gagal: buang foto yang sempat tersimpan
@@ -85,7 +85,7 @@ class PeminjamanController extends Controller
             throw $e;
         }
 
-        return response()->json($this->strukPayload($peminjaman, $inventory), 201);
+        return response()->json($this->strukPayload($pemakai, $inventory), 201);
     }
 
     // GET /inventory/{inventory}/struk -> cetak ulang struk serah terima yang sedang berjalan.
@@ -106,21 +106,21 @@ class PeminjamanController extends Controller
 
         $data = $request->validated();
 
-        $peminjaman = DB::transaction(function () use ($request, $data, $inventory) {
+        $pemakai = DB::transaction(function () use ($request, $data, $inventory) {
             // kunci barangnya lalu cek ulang, supaya dua admin tidak mengembalikan barang yang sama bersamaan
             $locked = Inventory::lockForUpdate()->findOrFail($inventory->id);
             $this->ensureSedangDipakai($locked, 'Hanya barang utama yang sedang dipakai yang bisa dikembalikan.');
 
-            $peminjaman = $this->peminjamanAktif($locked);
+            $pemakai = $this->peminjamanAktif($locked);
 
-            // kode peminjaman harus cocok dengan yang tertera di struk serah terima
-            if (strcasecmp(trim($data['nomor_penerimaan']), $peminjaman->nomor_penerimaan) !== 0) {
+            // kode pemakai harus cocok dengan yang tertera di struk serah terima
+            if (strcasecmp(trim($data['nomor_penerimaan']), $pemakai->nomor_penerimaan) !== 0) {
                 throw ValidationException::withMessages([
-                    'nomor_penerimaan' => 'Nomor penerimaan tidak cocok dengan peminjaman barang ini.',
+                    'nomor_penerimaan' => 'Nomor penerimaan tidak cocok dengan pemakai barang ini.',
                 ]);
             }
 
-            if ($data['tanggal_pengembalian'] < $peminjaman->tanggal_penerimaan->format('Y-m-d')) {
+            if ($data['tanggal_pengembalian'] < $pemakai->tanggal_penerimaan->format('Y-m-d')) {
                 throw ValidationException::withMessages([
                     'tanggal_pengembalian' => 'Tanggal pengembalian tidak boleh sebelum tanggal penerimaan.',
                 ]);
@@ -133,7 +133,7 @@ class PeminjamanController extends Controller
                 // parent_id tidak berubah, jadi hook link di model tidak ikut jalan
                 $child->update(['peminjam_id' => null, 'status' => $kondisi]);
 
-                $ditutup = PeminjamanItem::where('peminjaman_id', $peminjaman->id)
+                $ditutup = PeminjamanItem::where('pemakai_id', $pemakai->id)
                     ->where('inventory_id', $child->id)
                     ->whereNull('dikembalikan_at')
                     ->update(['dikembalikan_at' => now(), 'kondisi_kembali' => $kondisi]);
@@ -141,7 +141,7 @@ class PeminjamanController extends Controller
                 // kelengkapan dari sebelum riwayat item ada: catat sekarang supaya tetap muncul di struk
                 if ($ditutup === 0) {
                     PeminjamanItem::create([
-                        'peminjaman_id' => $peminjaman->id,
+                        'pemakai_id' => $pemakai->id,
                         'inventory_id' => $child->id,
                         'keterangan' => PeminjamanItem::KETERANGAN_IKUT,
                         'dikembalikan_at' => now(),
@@ -154,7 +154,7 @@ class PeminjamanController extends Controller
             $kondisiUtama = $locked->status === 'dipakai' ? 'tersedia' : $locked->status;
             $locked->update(['peminjam_id' => null, 'status' => $kondisiUtama]);
 
-            $peminjaman->update([
+            $pemakai->update([
                 'tanggal_pengembalian' => $data['tanggal_pengembalian'],
                 'waktu_pengembalian' => now(),
                 'kondisi_kembali' => $kondisiUtama,
@@ -162,33 +162,33 @@ class PeminjamanController extends Controller
                 'dikembalikan_oleh' => $request->user()->id,
             ]);
 
-            return $peminjaman;
+            return $pemakai;
         });
 
-        return response()->json($this->pengembalianPayload($peminjaman->fresh()));
+        return response()->json($this->pengembalianPayload($pemakai->fresh()));
     }
 
-    // GET /peminjaman/{peminjaman}/struk-pengembalian -> cetak ulang struk pengembalian (dari riwayat)
-    public function strukPengembalian(Peminjaman $peminjaman): JsonResponse
+    // GET /pemakai/{pemakai}/struk-pengembalian -> cetak ulang struk pengembalian (dari riwayat)
+    public function strukPengembalian(Pemakai $pemakai): JsonResponse
     {
-        if (! $peminjaman->sudahKembali()) {
+        if (! $pemakai->sudahKembali()) {
             throw ValidationException::withMessages([
-                'peminjaman' => 'Peminjaman ini belum dikembalikan, jadi belum ada struk pengembalian.',
+                'pemakai' => 'Pemakai ini belum dikembalikan, jadi belum ada struk pengembalian.',
             ]);
         }
 
-        return response()->json($this->pengembalianPayload($peminjaman));
+        return response()->json($this->pengembalianPayload($pemakai));
     }
 
-    // GET /inventory/{inventory}/riwayat -> riwayat peminjaman barang ini, terbaru di atas:
-    // sebagai barang utama (peminjaman sendiri) dan sebagai kelengkapan (ikut barang utamanya)
+    // GET /inventory/{inventory}/riwayat -> riwayat pemakai barang ini, terbaru di atas:
+    // sebagai barang utama (pemakai sendiri) dan sebagai kelengkapan (ikut barang utamanya)
     public function riwayat(Inventory $inventory): JsonResponse
     {
-        $sebagaiUtama = $inventory->peminjaman()->with('peminjam:id,name')->get()->map(fn (Peminjaman $p) => [
+        $sebagaiUtama = $inventory->pemakai()->with('peminjam:id,name')->get()->map(fn (Pemakai $p) => [
             '_t' => $p->created_at,
             'id' => 'p'.$p->id,
             'peran' => 'utama',
-            'peminjaman_id' => $p->id,
+            'pemakai_id' => $p->id,
             'nomor_penerimaan' => $p->nomor_penerimaan,
             'tanggal_penerimaan' => $p->tanggal_penerimaan->format('Y-m-d'),
             'tanggal_pengembalian' => $p->tanggal_pengembalian?->format('Y-m-d'),
@@ -204,25 +204,25 @@ class PeminjamanController extends Controller
         ]);
 
         $sebagaiKelengkapan = $inventory->peminjamanItems()
-            ->with(['peminjaman.peminjam:id,name', 'peminjaman.inventory:id,kode_inventory,nama'])
+            ->with(['pemakai.peminjam:id,name', 'pemakai.inventory:id,kode_inventory,nama'])
             ->get()
             ->map(fn (PeminjamanItem $i) => [
                 '_t' => $i->created_at,
                 'id' => 'i'.$i->id,
                 'peran' => 'kelengkapan',
-                'peminjaman_id' => $i->peminjaman_id,
-                'nomor_penerimaan' => $i->peminjaman->nomor_penerimaan,
-                'tanggal_penerimaan' => $i->peminjaman->tanggal_penerimaan->format('Y-m-d'),
+                'pemakai_id' => $i->pemakai_id,
+                'nomor_penerimaan' => $i->pemakai->nomor_penerimaan,
+                'tanggal_penerimaan' => $i->pemakai->tanggal_penerimaan->format('Y-m-d'),
                 'tanggal_pengembalian' => $i->dikembalikan_at?->format('Y-m-d'),
-                'waktu_penerimaan' => $i->peminjaman->created_at?->toIso8601String(),
+                'waktu_penerimaan' => $i->pemakai->created_at?->toIso8601String(),
                 'waktu_pengembalian' => $i->dikembalikan_at?->toIso8601String(),
-                'peminjam' => $i->peminjaman->peminjam?->name,
-                'induk' => $i->peminjaman->inventory?->only(['id', 'kode_inventory', 'nama']),
+                'peminjam' => $i->pemakai->peminjam?->name,
+                'induk' => $i->pemakai->inventory?->only(['id', 'kode_inventory', 'nama']),
                 'keterangan' => $i->keterangan,
                 'catatan_kembali' => $i->catatan_kembali,
                 'berjalan' => $i->dikembalikan_at === null,
                 // yang dilepas di tengah jalan tidak tercantum di struk pengembalian set
-                'bisa_cetak_pengembalian' => $i->peminjaman->sudahKembali() && ! $i->dilepas,
+                'bisa_cetak_pengembalian' => $i->pemakai->sudahKembali() && ! $i->dilepas,
             ]);
 
         $rows = $sebagaiUtama->concat($sebagaiKelengkapan)
@@ -251,44 +251,44 @@ class PeminjamanController extends Controller
         }
     }
 
-    // peminjaman yang sedang berjalan untuk barang utama ini
-    private function peminjamanAktif(Inventory $inventory): Peminjaman
+    // pemakai yang sedang berjalan untuk barang utama ini
+    private function peminjamanAktif(Inventory $inventory): Pemakai
     {
-        $peminjaman = Peminjaman::aktif()
+        $pemakai = Pemakai::aktif()
             ->where('inventory_id', $inventory->id)
             ->with('peminjam:id,name')
             ->latest('id')
             ->first();
 
-        if (! $peminjaman) {
+        if (! $pemakai) {
             throw ValidationException::withMessages([
                 'inventory' => 'Riwayat serah terima barang ini tidak ditemukan.',
             ]);
         }
 
-        return $peminjaman;
+        return $pemakai;
     }
 
     // data struk serah terima (dipakai saat serah terima, cetak ulang, dan modal Kembalikan)
-    private function strukPayload(Peminjaman $peminjaman, Inventory $inventory): array
+    private function strukPayload(Pemakai $pemakai, Inventory $inventory): array
     {
         return [
-            'nomor_penerimaan' => $peminjaman->nomor_penerimaan,
-            'tanggal_penerimaan' => $peminjaman->tanggal_penerimaan->format('Y-m-d'),
-            'catatan' => $peminjaman->catatan,
-            'peminjam' => $peminjaman->peminjam->only(['id', 'name']),
+            'nomor_penerimaan' => $pemakai->nomor_penerimaan,
+            'tanggal_penerimaan' => $pemakai->tanggal_penerimaan->format('Y-m-d'),
+            'catatan' => $pemakai->catatan,
+            'peminjam' => $pemakai->peminjam->only(['id', 'name']),
             'inventory' => $inventory->only(self::STRUK_COLUMNS),
             'kelengkapan' => $inventory->children()->orderBy('kode_inventory')->get(self::STRUK_COLUMNS),
         ];
     }
 
-    // data struk pengembalian: kelengkapan dibaca dari riwayat peminjaman (bukan susunan sekarang),
+    // data struk pengembalian: kelengkapan dibaca dari riwayat pemakai (bukan susunan sekarang),
     // supaya struknya tetap sama walau link-nya berubah setelah dikembalikan
-    private function pengembalianPayload(Peminjaman $peminjaman): array
+    private function pengembalianPayload(Pemakai $pemakai): array
     {
-        $peminjaman->loadMissing(['peminjam:id,name', 'inventory:'.implode(',', self::LABEL_COLUMNS)]);
+        $pemakai->loadMissing(['peminjam:id,name', 'inventory:'.implode(',', self::LABEL_COLUMNS)]);
 
-        $kelengkapan = $peminjaman->items()
+        $kelengkapan = $pemakai->items()
             ->where('dilepas', false)
             ->with('inventory:'.implode(',', self::LABEL_COLUMNS))
             ->get()
@@ -300,15 +300,15 @@ class PeminjamanController extends Controller
             ->values();
 
         return [
-            'nomor_penerimaan' => $peminjaman->nomor_penerimaan,
-            'tanggal_penerimaan' => $peminjaman->tanggal_penerimaan->format('Y-m-d'),
-            'tanggal_pengembalian' => $peminjaman->tanggal_pengembalian->format('Y-m-d'),
-            'catatan' => $peminjaman->catatan,
-            'catatan_kembali' => $peminjaman->catatan_kembali,
-            'peminjam' => $peminjaman->peminjam->only(['id', 'name']),
+            'nomor_penerimaan' => $pemakai->nomor_penerimaan,
+            'tanggal_penerimaan' => $pemakai->tanggal_penerimaan->format('Y-m-d'),
+            'tanggal_pengembalian' => $pemakai->tanggal_pengembalian->format('Y-m-d'),
+            'catatan' => $pemakai->catatan,
+            'catatan_kembali' => $pemakai->catatan_kembali,
+            'peminjam' => $pemakai->peminjam->only(['id', 'name']),
             'inventory' => [
-                ...$peminjaman->inventory->only(self::LABEL_COLUMNS),
-                'kondisi_kembali' => $peminjaman->kondisi_kembali,
+                ...$pemakai->inventory->only(self::LABEL_COLUMNS),
+                'kondisi_kembali' => $pemakai->kondisi_kembali,
             ],
             'kelengkapan' => $kelengkapan,
         ];
@@ -319,7 +319,7 @@ class PeminjamanController extends Controller
     {
         do {
             $nomor = strtoupper(Str::random(6)).'-'.now()->format('His');
-        } while (Peminjaman::where('nomor_penerimaan', $nomor)->exists());
+        } while (Pemakai::where('nomor_penerimaan', $nomor)->exists());
 
         return $nomor;
     }

@@ -33,7 +33,7 @@ class Inventory extends Model
     protected array $linkEffects = [];
 
     // peminjam kelengkapan ikut barang utamanya tiap kali link-nya berubah (tombol Link / Lepas link maupun form Ubah):
-    // - dipasang ke barang utama yang sedang dipakai: ikut dipakai karyawan yang sama, tercatat di riwayat peminjaman
+    // - dipasang ke barang utama yang sedang dipakai: ikut dipakai karyawan yang sama, tercatat di riwayat pemakai
     // - dilepas dari barang utama yang sedang dipakai: dianggap dikembalikan otomatis, kembali tersedia, tercatat di riwayat
     // (status dipakai <-> tersedia saja yang berubah; status lain seperti rusak / diperbaiki dibiarkan)
     protected static function booted(): void
@@ -80,18 +80,18 @@ class Inventory extends Model
             $inventory->linkEffects = [];
 
             if (isset($effects['detach'])) {
-                $peminjaman = Peminjaman::aktif()->where('inventory_id', $effects['detach'])->latest('id')->first();
+                $pemakai = Pemakai::aktif()->where('inventory_id', $effects['detach'])->latest('id')->first();
 
-                if ($peminjaman) {
-                    PeminjamanItem::lepas($peminjaman, $inventory->id, $inventory->status, isset($effects['attach']));
+                if ($pemakai) {
+                    PeminjamanItem::lepas($pemakai, $inventory->id, $inventory->status, isset($effects['attach']));
                 }
             }
 
             if (isset($effects['attach'])) {
-                $peminjaman = Peminjaman::aktif()->where('inventory_id', $effects['attach'])->latest('id')->first();
+                $pemakai = Pemakai::aktif()->where('inventory_id', $effects['attach'])->latest('id')->first();
 
-                if ($peminjaman) {
-                    PeminjamanItem::buka($peminjaman, $inventory->id);
+                if ($pemakai) {
+                    PeminjamanItem::buka($pemakai, $inventory->id);
                 }
             }
         });
@@ -123,12 +123,12 @@ class Inventory extends Model
         return $this->belongsTo(User::class, 'peminjam_id');
     }
 
-    public function peminjaman(): HasMany
+    public function pemakai(): HasMany
     {
-        return $this->hasMany(Peminjaman::class);
+        return $this->hasMany(Pemakai::class);
     }
 
-    // jejak kelengkapan ini di peminjaman barang utamanya
+    // jejak kelengkapan ini di pemakai barang utamanya
     public function peminjamanItems(): HasMany
     {
         return $this->hasMany(PeminjamanItem::class);

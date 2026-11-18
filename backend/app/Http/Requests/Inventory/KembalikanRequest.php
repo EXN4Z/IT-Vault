@@ -14,7 +14,7 @@ class KembalikanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // kode peminjaman dari struk serah terima; dicocokkan dengan peminjaman barang ini di controller
+            // kode pemakai dari struk serah terima; dicocokkan dengan pemakai barang ini di controller
             'nomor_penerimaan' => ['required', 'string', 'max:50'],
             'tanggal_pengembalian' => ['required', 'date_format:Y-m-d'],
             'catatan' => ['nullable', 'string', 'max:1000'],

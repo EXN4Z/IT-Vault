@@ -11,8 +11,9 @@ return new class extends Migration
     {
         Schema::create('inventory', function (Blueprint $table) {
             $table->id();
-            $table->string('kode_inventory')->unique();
+            $table->string('kode_inventory')->unique(); // dibuat trigger database kalau kosong (lihat bawah)
 
+            // barang utama (parent_id kosong) dan kelengkapannya (parent_id = id barang utama)
             $table->foreignId('parent_id')->nullable()
                 ->constrained('inventory')
                 ->nullOnDelete();
@@ -43,13 +44,19 @@ return new class extends Migration
             $table->string('no_surat_jalan')->nullable();
             $table->string('no_good_receive')->nullable();
 
-            $table->string('status')->default('tersedia'); // tersedia, dipakai, menunggu_perbaikan, diperbaiki, rusak_berat
+            // tersedia, dipakai, menunggu_perbaikan, diperbaiki, rusak_berat, dijual
+            $table->string('status')->default('tersedia');
+
+            // pemakai saat ini; barang utama dan semua kelengkapannya diisi pemakai yang sama
+            $table->foreignId('pemakai_saat_ini_id')->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
 
             $table->timestamps();
         });
 
-        // Auto-generate kode_inventory format: IT-{YY}-{nomor 5 digit},
-        // mis. IT-26-00027.
+        // Auto-generate kode_inventory format: IT-{YY}-{nomor 5 digit}, mis. IT-26-00027.
+        // Hanya jalan kalau kode_inventory kosong; kode yang dikirim (mis. dari import) dipakai apa adanya.
         DB::unprepared(<<<'SQL'
             create or replace function generate_kode_inventory()
             returns trigger as $$

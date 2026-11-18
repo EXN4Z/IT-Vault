@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\InventoryRequest;
 use App\Models\Inventory;
 use App\Models\Kategori;
-use App\Models\Peminjaman;
+use App\Models\Pemakai;
 use App\Models\Perusahaan;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
@@ -182,11 +182,11 @@ class InventoryController extends Controller
             }
 
             // barang yang rusak berat saat dipakai masih tercatat dipegang peminjamnya dan tombol Kembalikan
-            // tidak bisa dipakai lagi (hanya menerima status Dipakai), jadi peminjaman ditutup di sini
-            $peminjaman = Peminjaman::aktif()->where('inventory_id', $locked->id)->latest('id')->first();
+            // tidak bisa dipakai lagi (hanya menerima status Dipakai), jadi pemakai ditutup di sini
+            $pemakai = Pemakai::aktif()->where('inventory_id', $locked->id)->latest('id')->first();
 
-            if ($peminjaman) {
-                $peminjaman->update([
+            if ($pemakai) {
+                $pemakai->update([
                     'tanggal_pengembalian' => now()->toDateString(),
                     'waktu_pengembalian' => now(),
                     'kondisi_kembali' => 'rusak_berat',

@@ -41,7 +41,7 @@ export interface Penanganan {
     serial_number: string | null;
     warna: string | null;
   } | null;
-  peminjaman_id: number | null;
+  pemakai_id: number | null;
   status: StatusPenanganan;
   status_sebelum: string;
   jenis_kerusakan: JenisKerusakan;

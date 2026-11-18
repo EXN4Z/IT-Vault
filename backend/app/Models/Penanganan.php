@@ -26,7 +26,7 @@ class Penanganan extends Model
     protected $table = 'inventory_penanganan';
 
     protected $fillable = [
-        'inventory_id', 'peminjaman_id', 'dilaporkan_oleh_user_id', 'diterima_oleh_user_id',
+        'inventory_id', 'pemakai_id', 'dilaporkan_oleh_user_id', 'diterima_oleh_user_id',
         'status', 'status_sebelum', 'jenis_kerusakan', 'keluhan', 'foto',
         'tanggal_lapor', 'lapor_at', 'tanggal_diterima', 'diterima_at', 'tanggal_selesai', 'selesai_at',
         'harga_jasa', 'biaya_komponen', 'hasil', 'no_struk', 'catatan',
@@ -49,9 +49,9 @@ class Penanganan extends Model
         return $this->belongsTo(Inventory::class);
     }
 
-    public function peminjaman(): BelongsTo
+    public function pemakai(): BelongsTo
     {
-        return $this->belongsTo(Peminjaman::class);
+        return $this->belongsTo(Pemakai::class);
     }
 
     // yang melaporkan (admin atau peminjam)

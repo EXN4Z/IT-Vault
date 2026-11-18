@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Peminjaman extends Model
+class Pemakai extends Model
 {
     // nama tabel singular, jadi harus ditulis eksplisit (default Laravel: "peminjamen")
-    protected $table = 'peminjaman';
+    protected $table = 'pemakai';
 
     protected $fillable = [
         'inventory_id', 'user_id', 'nomor_penerimaan', 'tanggal_penerimaan',
@@ -42,7 +42,7 @@ class Peminjaman extends Model
         return $this->hasMany(PeminjamanItem::class);
     }
 
-    // peminjaman yang sedang berjalan (belum dikembalikan)
+    // pemakai yang sedang berjalan (belum dikembalikan)
     public function scopeAktif(Builder $query): Builder
     {
         return $query->whereNull('tanggal_pengembalian');
