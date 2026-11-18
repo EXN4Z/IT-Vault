@@ -39,6 +39,61 @@ const PER_PAGE_OPTIONS = [8, 12, 24, 48].map((opt) => ({
   label: String(opt),
 }));
 
+interface SafeImageProps {
+  src?: string;
+  alt: string;
+  className?: string;
+  loading?: 'lazy' | 'eager';
+  compact?: boolean;
+  onStatusChange?: (ok: boolean) => void;
+}
+
+// Menampilkan gambar, atau placeholder sesuai kondisi: "Tidak ada foto" vs "Foto gagal dimuat"
+function SafeImage({ src, alt, className, loading, compact = false, onStatusChange }: SafeImageProps) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+    onStatusChange?.(Boolean(src));
+  }, [src]);
+
+  if (!src) {
+    return (
+      <div className="grid h-full w-full place-items-center text-ink-muted">
+        <span className="flex flex-col items-center gap-1.5 text-center text-xs font-medium">
+          <ImageOff size={compact ? 18 : 28} />
+          {!compact && <span>Tidak ada foto</span>}
+        </span>
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="grid h-full w-full place-items-center text-ink-muted">
+        <span className="flex flex-col items-center gap-1.5 px-2 text-center text-xs font-medium">
+          <ImageOff size={compact ? 18 : 28} />
+          {!compact && <span>Foto gagal dimuat</span>}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      loading={loading}
+      onLoad={() => onStatusChange?.(true)}
+      onError={() => {
+        setFailed(true);
+        onStatusChange?.(false);
+      }}
+    />
+  );
+}
+
 export default function FotoInventoryPage() {
   const [items, setItems] = useState<LaporanFotoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +103,7 @@ export default function FotoInventoryPage() {
   const [perPage, setPerPage] = useState(12);
   const [selected, setSelected] = useState<LaporanFotoItem | null>(null);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  const [activePhotoValid, setActivePhotoValid] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
 
   useEffect(() => {
@@ -87,6 +143,7 @@ export default function FotoInventoryPage() {
   const openPreview = (item: LaporanFotoItem) => {
     setSelected(item);
     setActivePhotoIdx(0);
+    setActivePhotoValid(Boolean(item.foto_urls?.[0]));
     setZoomOpen(false);
   };
 
@@ -95,6 +152,7 @@ export default function FotoInventoryPage() {
   const safePage = Math.min(page, pageCount);
   const paginatedItems = items.slice((safePage - 1) * perPage, safePage * perPage);
   const activeTabLabel = FILTER_TABS.find((t) => t.key === jenis)?.label ?? 'Semua';
+  const activeSrc = selected?.foto_urls?.[activePhotoIdx];
 
   return (
     <div className="space-y-4">
@@ -155,62 +213,65 @@ export default function FotoInventoryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {paginatedItems.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => openPreview(item)}
-                className="group flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-canvas transition hover:border-ink/40"
-              >
-                {/* Thumbnail */}
-                <div className="relative aspect-4/3 w-full overflow-hidden bg-hover">
-                  <img
-                    src={item.foto_urls[0]}
-                    alt={item.inventory?.nama ?? item.referensi}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <span
-                    className={`absolute left-2.5 top-2.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold shadow-sm ${BADGE_STYLE[item.jenis]}`}
-                  >
-                    {item.jenis_label}
-                  </span>
-                  {item.foto_urls.length > 1 && (
-                    <span className="absolute bottom-2 right-2 rounded-md bg-zinc-900 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
-                      +{item.foto_urls.length - 1} foto
+            {paginatedItems.map((item) => {
+              const urls = item.foto_urls ?? [];
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => openPreview(item)}
+                  className="group flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-canvas transition hover:border-ink/40"
+                >
+                  {/* Thumbnail */}
+                  <div className="relative aspect-4/3 w-full overflow-hidden bg-hover">
+                    <SafeImage
+                      src={urls[0]}
+                      alt={item.inventory?.nama ?? item.referensi}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    <span
+                      className={`absolute left-2.5 top-2.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold shadow-sm ${BADGE_STYLE[item.jenis]}`}
+                    >
+                      {item.jenis_label}
                     </span>
-                  )}
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
-                    <span className="flex items-center gap-1.5 rounded-lg bg-canvas px-3 py-1.5 text-xs font-semibold text-ink shadow">
-                      <Eye size={14} /> Lihat Foto
-                    </span>
-                  </div>
-                </div>
-
-                {/* Info Singkat */}
-                <div className="flex flex-1 flex-col justify-between space-y-2 p-3">
-                  <div>
-                    <p className="font-mono text-[11px] text-ink-muted">
-                      {item.inventory?.kode_inventory ?? '-'} • {item.referensi}
-                    </p>
-                    <p className="line-clamp-1 text-sm font-semibold text-ink">
-                      {item.inventory?.nama ?? 'Barang tidak ditemukan'}
-                    </p>
-                    {item.keterangan && (
-                      <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">{item.keterangan}</p>
+                    {urls.length > 1 && (
+                      <span className="absolute bottom-2 right-2 rounded-md bg-zinc-900 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
+                        +{urls.length - 1} foto
+                      </span>
                     )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
+                      <span className="flex items-center gap-1.5 rounded-lg bg-canvas px-3 py-1.5 text-xs font-semibold text-ink shadow">
+                        <Eye size={14} /> Lihat Detail
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-line pt-2 text-[11px] text-ink-muted">
-                    <span className="flex items-center gap-1 truncate">
-                      <User size={12} /> {item.pelaku}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      <Calendar size={12} /> {item.tanggal ?? '-'}
-                    </span>
+                  {/* Info Singkat */}
+                  <div className="flex flex-1 flex-col justify-between space-y-2 p-3">
+                    <div>
+                      <p className="font-mono text-[11px] text-ink-muted">
+                        {item.inventory?.kode_inventory ?? '-'} • {item.referensi}
+                      </p>
+                      <p className="line-clamp-1 text-sm font-semibold text-ink">
+                        {item.inventory?.nama ?? 'Barang tidak ditemukan'}
+                      </p>
+                      {item.keterangan && (
+                        <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">{item.keterangan}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-line pt-2 text-[11px] text-ink-muted">
+                      <span className="flex items-center gap-1 truncate">
+                        <User size={12} /> {item.pelaku}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <Calendar size={12} /> {item.tanggal ?? '-'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -257,34 +318,48 @@ export default function FotoInventoryPage() {
       >
         {selected && (
           <div className="space-y-4">
-            {/* Gambar Utama (klik untuk zoom) */}
+            {/* Gambar Utama */}
             <div
-              onClick={() => setZoomOpen(true)}
-              className="group relative cursor-zoom-in overflow-hidden rounded-xl border border-line bg-hover"
+              onClick={() => {
+                if (activePhotoValid) setZoomOpen(true);
+              }}
+              className={`group relative overflow-hidden rounded-xl border border-line bg-hover ${
+                activePhotoValid ? 'cursor-zoom-in' : 'min-h-48'
+              }`}
             >
-              <img
-                src={selected.foto_urls[activePhotoIdx]}
-                alt={`Foto ${activePhotoIdx + 1}`}
-                className="max-h-[60vh] w-full object-contain"
-              />
-              <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-lg bg-zinc-900/85 px-2.5 py-1 text-[11px] font-medium text-white opacity-90 shadow transition group-hover:opacity-100">
-                <ZoomIn size={13} /> Perbesar
-              </span>
+              <div className="flex min-h-48 items-center justify-center">
+                <SafeImage
+                  src={activeSrc}
+                  alt={`Foto ${activePhotoIdx + 1}`}
+                  className="max-h-[60vh] w-full object-contain"
+                  onStatusChange={setActivePhotoValid}
+                />
+              </div>
+              {activePhotoValid && (
+                <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-lg bg-zinc-900/85 px-2.5 py-1 text-[11px] font-medium text-white opacity-90 shadow transition group-hover:opacity-100">
+                  <ZoomIn size={13} /> Perbesar
+                </span>
+              )}
             </div>
 
             {/* Thumbnail Selector jika foto > 1 */}
-            {selected.foto_urls.length > 1 && (
+            {(selected.foto_urls?.length ?? 0) > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {selected.foto_urls.map((url, idx) => (
                   <button
-                    key={url}
+                    key={`${url}-${idx}`}
                     type="button"
                     onClick={() => setActivePhotoIdx(idx)}
-                    className={`size-16 shrink-0 cursor-pointer overflow-hidden rounded-lg border-2 transition ${
+                    className={`size-16 shrink-0 cursor-pointer overflow-hidden rounded-lg border-2 bg-hover transition ${
                       activePhotoIdx === idx ? 'border-ink' : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={url} alt={`Thumb ${idx + 1}`} className="h-full w-full object-cover" />
+                    <SafeImage
+                      src={url}
+                      alt={`Thumb ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                      compact
+                    />
                   </button>
                 ))}
               </div>

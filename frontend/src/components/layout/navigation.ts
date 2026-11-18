@@ -5,14 +5,14 @@ import {
   Package,
   Users,
   Building2,
-  Layers,
   type LucideIcon,
-  Store,
   Tags,
   Truck,
   MonitorCog,
   FileBarChart2,
   Images,
+  Warehouse,
+  BriefcaseBusiness,
 } from 'lucide-react';
 
 // ===== tipe data menu =====
@@ -70,8 +70,8 @@ export const navItems: NavItem[] = [
       { label: 'Supplier', path: '/master-data?tab=supplier', icon: Truck },
       { label: 'Data User', path: '/master-data?tab=data-user', icon: Users },
       { label: 'Perusahaan', path: '/master-data?tab=perusahaan', icon: Building2 },
-      { label: 'Departemen', path: '/master-data?tab=departemen', icon: Layers },
-      { label: 'Cabang', path: '/master-data?tab=cabang', icon: Store },
+      { label: 'Departemen', path: '/master-data?tab=departemen', icon: BriefcaseBusiness },
+      { label: 'Cabang', path: '/master-data?tab=cabang', icon: Warehouse },
     ],
   },
 ];
