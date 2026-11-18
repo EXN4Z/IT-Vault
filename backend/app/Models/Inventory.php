@@ -19,7 +19,7 @@ class Inventory extends Model
         'parent_id', 'kategori_id', 'nama', 'warna', 'serial_number', 'jumlah',
         'tanggal_garansi', 'tanggal_input', 'tanggal_invoice', 'merk', 'type',
         'perusahaan_id', 'keterangan', 'foto', 'supplier_id', 'no_surat_jalan',
-        'no_good_receive', 'status', 'peminjam_id',
+        'no_good_receive', 'status', 'pemakai_saat_ini_id',
     ];
 
     // tanggal keluar sebagai 'YYYY-MM-DD' (bukan ISO), langsung cocok dengan DatePicker di frontend
@@ -51,7 +51,7 @@ class Inventory extends Model
 
             // induk yang rusak berat / diperbaiki tapi belum dikembalikan masih dipegang peminjamnya,
             // jadi kelengkapan yang dilepas tetap harus ikut "dikembalikan" (kalau tidak, nyangkut di peminjam)
-            $oldBorrowed = $oldParent !== null && ($oldParent->status === 'dipakai' || $oldParent->peminjam_id !== null);
+            $oldBorrowed = $oldParent !== null && ($oldParent->status === 'dipakai' || $oldParent->pemakai_saat_ini_id !== null);
             $newBorrowed = $newParent?->status === 'dipakai';
 
             if ($oldBorrowed) {
@@ -60,14 +60,14 @@ class Inventory extends Model
 
             if ($newBorrowed) {
                 $inventory->linkEffects['attach'] = $newParent->id;
-                $inventory->peminjam_id = $newParent->peminjam_id;
+                $inventory->pemakai_saat_ini_id = $newParent->pemakai_saat_ini_id;
 
                 // barang baru belum punya status di atribut (default database), dianggap tersedia
                 if (($inventory->status ?? 'tersedia') === 'tersedia') {
                     $inventory->status = 'dipakai';
                 }
             } elseif ($oldBorrowed) {
-                $inventory->peminjam_id = null;
+                $inventory->pemakai_saat_ini_id = null;
 
                 if ($inventory->status === 'dipakai') {
                     $inventory->status = 'tersedia';
@@ -118,9 +118,9 @@ class Inventory extends Model
     }
 
     // karyawan yang sedang memakai (barang utama dan kelengkapannya sama)
-    public function peminjam(): BelongsTo
+    public function pemakaiSaatIni(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'peminjam_id');
+        return $this->belongsTo(User::class, 'pemakai_saat_ini_id');
     }
 
     public function pemakai(): HasMany

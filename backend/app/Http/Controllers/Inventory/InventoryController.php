@@ -22,7 +22,7 @@ use App\Exports\InventoryExport;
 class InventoryController extends Controller
 {
     // relasi yang ikut dimuat supaya tabel bisa menampilkan namanya
-    private const WITH = ['kategori:id,nama', 'perusahaan:id,nama', 'supplier:id,nama', 'parent:id,kode_inventory,nama', 'peminjam:id,name'];
+    private const WITH = ['kategori:id,nama', 'perusahaan:id,nama', 'supplier:id,nama', 'parent:id,kode_inventory,nama', 'pemakaiSaatIni:id,name'];
 
     // GET /inventory?page=1&per_page=10&status=tersedia&search=...&sort_by=kode_inventory&sort_dir=asc
     public function index(Request $request): JsonResponse
@@ -51,7 +51,7 @@ class InventoryController extends Controller
                     ->orWhereRaw("LOWER(CONCAT_WS(' ', merk, type)) LIKE ?", [$like])
                     ->orWhereRaw('LOWER(serial_number) LIKE ?', [$like])
                     ->orWhereHas('kategori', fn ($k) => $k->whereRaw('LOWER(nama) LIKE ?', [$like]))
-                    ->orWhereHas('peminjam', fn ($p) => $p->whereRaw('LOWER(name) LIKE ?', [$like]))
+                    ->orWhereHas('pemakaiSaatIni', fn ($p) => $p->whereRaw('LOWER(name) LIKE ?', [$like]))
                 );
             });
 
@@ -63,10 +63,10 @@ class InventoryController extends Controller
                     Kategori::select('nama')->whereColumn('kategori.id', 'inventory.kategori_id'),
                     $sortDir
                 ),
-            'peminjam' => $query
-                ->orderByRaw('peminjam_id IS NULL ASC')
+            'pemakai' => $query
+                ->orderByRaw('pemakai_saat_ini_id IS NULL ASC')
                 ->orderBy(
-                    DB::table('users')->select('name')->whereColumn('users.id', 'inventory.peminjam_id'),
+                    DB::table('users')->select('name')->whereColumn('users.id', 'inventory.pemakai_saat_ini_id'),
                     $sortDir
                 ),
             'link' => $query
@@ -195,7 +195,7 @@ class InventoryController extends Controller
                 ]);
             }
 
-            $locked->update(['status' => 'dijual', 'peminjam_id' => null]);
+            $locked->update(['status' => 'dijual', 'pemakai_saat_ini_id' => null]);
         });
 
         return response()->json($inventory->refresh()->load(self::WITH)->loadCount('children'));

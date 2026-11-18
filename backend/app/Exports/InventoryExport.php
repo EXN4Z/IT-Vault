@@ -70,7 +70,7 @@ class InventoryExport implements
             'keterangan'        => ['Keterangan',        fn ($i) => $this->teks($i->keterangan), 42],
             'jumlah'            => ['Jumlah',            fn ($i) => $i->jumlah, 10],
             'status'            => ['Status',            fn ($i) => $this->labelStatus($i->status), 21],
-            'pemakai_saat_ini'  => ['Pemakai Saat Ini',  fn ($i) => $this->teks($i->peminjam?->name), 20],
+            'pemakai_saat_ini'  => ['Pemakai Saat Ini',  fn ($i) => $this->teks($i->pemakaiSaatIni?->name), 20],
             'supplier'          => ['Supplier',          fn ($i) => $this->teks($i->supplier?->nama), 24],
             'tanggal_pembelian' => ['Tanggal Pembelian', fn ($i) => $this->tanggal($i->tanggal_invoice), 20],
             'tanggal_input'     => ['Tanggal Input',     fn ($i) => $this->tanggal($i->tanggal_input), 16],
