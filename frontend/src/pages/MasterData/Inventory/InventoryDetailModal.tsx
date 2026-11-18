@@ -314,7 +314,7 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
             {/* riwayat pemakai & peminjaman */}
             <section>
               <div className="mb-1 flex items-center justify-between">
-                <h3 className={sectionTitle}>Riwayat Pemakai &amp; Pemakai</h3>
+                <h3 className={sectionTitle}>Riwayat Pemakai</h3>
                 {rows && <span className="text-[11px] text-ink-muted">{rows.length} catatan</span>}
               </div>
 
@@ -324,7 +324,7 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
                 <p className="flex items-center gap-2 border-t border-line pt-3 text-xs text-ink-muted"><Loader2 size={14} className="animate-spin" />Memuat riwayat…</p>
               )}
 
-              {rows?.length === 0 && <p className="border-t border-line pt-3 text-xs italic text-ink-muted">Belum pernah dipinjam.</p>}
+              {rows?.length === 0 && <p className="border-t border-line pt-3 text-xs italic text-ink-muted">Belum pernah dipakai.</p>}
 
               <ul>
                 {rows && pageSlice(rows, pageRiwayat).map((r) => {
@@ -333,7 +333,7 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
                     <li key={r.id} className="border-t border-line py-2.5 text-xs">
                       <div className="flex items-center justify-between gap-3">
                         <p className="min-w-0 flex-1">
-                          <span className="font-semibold uppercase text-ink">{r.peminjam ?? '-'}</span>
+                          <span className="font-semibold uppercase text-ink">{r.pemakai ?? '-'}</span>
                           <span className="text-ink-soft">
                             {' '}— {tglJam(r.tanggal_penerimaan, r.waktu_penerimaan)} s/d {r.tanggal_pengembalian ? tglJam(r.tanggal_pengembalian, r.waktu_pengembalian) : 'sekarang'}
                           </span>
@@ -354,8 +354,8 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
                           )}
                           <button
                             type="button"
-                            aria-label="Lihat detail peminjaman"
-                            title="Lihat detail peminjaman"
+                            aria-label="Lihat detail pemakai"
+                            title="Lihat detail pemakai"
                             aria-pressed={expanded}
                             className={`${iconBtn} ${expanded ? 'bg-hover text-ink' : ''}`}
                             onClick={() => setExpandedId(expanded ? null : r.id)}

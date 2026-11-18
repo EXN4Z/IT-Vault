@@ -32,7 +32,7 @@ function today(): string {
 
 const emptyForm = (): FormState => ({ user_id: '', tanggal_penerimaan: today(), catatan: '' });
 
-// modal "Serahkan ke karyawan": pilih peminjam, tanggal, catatan, 3 foto bukti; setelah berhasil struk dibuka
+// modal "Serahkan ke karyawan": pilih pemakai, tanggal, catatan, 3 foto bukti; setelah berhasil struk dibuka
 export default function InventoryHandoverModal({ open, inventory, onClose, onSaved }: InventoryHandoverModalProps) {
   const formId = useId();
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -84,9 +84,9 @@ export default function InventoryHandoverModal({ open, inventory, onClose, onSav
 
     // cek di browser dulu supaya pesannya langsung muncul
     const found: Record<string, string> = {};
-    if (!form.user_id) found.user_id = 'Pilih karyawan peminjam dulu.';
+    if (!form.user_id) found.user_id = 'Pilih karyawan pemakai dulu.';
     if (!form.tanggal_penerimaan) found.tanggal_penerimaan = 'Tanggal penerimaan wajib diisi.';
-    if (files.length !== PHOTO_COUNT) found.foto = `Foto barang bukti peminjaman harus tepat ${PHOTO_COUNT} foto.`;
+    if (files.length !== PHOTO_COUNT) found.foto = `Foto barang bukti pemakai harus tepat ${PHOTO_COUNT} foto.`;
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
@@ -167,11 +167,11 @@ export default function InventoryHandoverModal({ open, inventory, onClose, onSav
 
           {kelengkapan > 0 && (
             <p className="rounded-lg bg-hover px-3 py-2 text-xs text-ink-soft">
-              {kelengkapan} kelengkapan ikut diserahkan dan tercatat dipinjam oleh karyawan yang sama.
+              {kelengkapan} kelengkapan ikut diserahkan dan tercatat dipakai oleh karyawan yang sama.
             </p>
           )}
 
-          <FormField label="Cari Karyawan Peminjam" required error={errors.user_id}>
+          <FormField label="Cari Karyawan Pemakai" required error={errors.user_id}>
             <ComboBox
               options={karyawanOptions}
               value={form.user_id}

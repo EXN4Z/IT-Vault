@@ -1,4 +1,4 @@
-// satu pilihan di "Cari Karyawan Peminjam"
+// satu pilihan di "Cari Karyawan Pemakai"
 export interface KaryawanOption {
   id: number;
   name: string;
@@ -21,7 +21,7 @@ export interface SerahTerimaReceipt {
   nomor_penerimaan: string;
   tanggal_penerimaan: string; // 'YYYY-MM-DD'
   catatan: string | null;
-  peminjam: { id: number; name: string };
+  pemakai: { id: number; name: string };
   inventory: StrukInventory;
   kelengkapan: StrukInventory[];
 }
@@ -55,7 +55,7 @@ export interface PengembalianReceipt {
   tanggal_pengembalian: string;
   catatan: string | null;
   catatan_kembali: string | null;
-  peminjam: { id: number; name: string };
+  pemakai: { id: number; name: string };
   inventory: PengembalianItem;
   kelengkapan: PengembalianItem[];
 }
@@ -70,7 +70,7 @@ export interface RiwayatRow {
   tanggal_pengembalian: string | null;
   waktu_penerimaan: string | null; // ISO 8601 (UTC), untuk menampilkan jam
   waktu_pengembalian: string | null;
-  peminjam: string | null;
+  pemakai: string | null;
   induk: { id: number; kode_inventory: string; nama: string | null } | null; // barang utama (untuk peran kelengkapan)
   keterangan: string | null;
   catatan_kembali: string | null;

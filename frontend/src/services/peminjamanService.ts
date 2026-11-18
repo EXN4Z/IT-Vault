@@ -2,9 +2,9 @@ import { api } from '../lib/api';
 import type { KaryawanOption, KembalikanPayload, PengembalianReceipt, RiwayatRow, SerahTerimaReceipt } from '../types/peminjaman';
 
 export const peminjamanService = {
-  // GET /peminjaman/karyawan (karyawan aktif, untuk "Cari Karyawan Peminjam")
+  // GET /pemakai/karyawan (karyawan aktif, untuk "Cari Karyawan Pemakai")
   async karyawan(): Promise<KaryawanOption[]> {
-    const { data } = await api.get<KaryawanOption[]>('/peminjaman/karyawan');
+    const { data } = await api.get<KaryawanOption[]>('/pemakai/karyawan');
     return data;
   },
 
@@ -26,9 +26,9 @@ export const peminjamanService = {
     return data;
   },
 
-  // GET /peminjaman/{id}/struk-pengembalian (cetak ulang struk pengembalian dari riwayat)
-  async strukPengembalian(peminjamanId: number): Promise<PengembalianReceipt> {
-    const { data } = await api.get<PengembalianReceipt>(`/peminjaman/${peminjamanId}/struk-pengembalian`);
+  // GET /pemakai/{id}/struk-pengembalian (cetak ulang struk pengembalian dari riwayat)
+  async strukPengembalian(pemakaiId: number): Promise<PengembalianReceipt> {
+    const { data } = await api.get<PengembalianReceipt>(`/pemakai/${pemakaiId}/struk-pengembalian`);
     return data;
   },
 

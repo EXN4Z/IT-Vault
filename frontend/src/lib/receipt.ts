@@ -83,7 +83,7 @@ export function writeReceipt(win: Window, r: SerahTerimaReceipt): void {
   const rows = [
     row('Inventory', inventoryLabel(r.inventory)),
     ...r.kelengkapan.map((k, idx) => row(idx === 0 ? 'Kelengkapan' : '', inventoryLabel(k))),
-    row('Diserahkan Kepada', r.peminjam.name),
+    row('Diserahkan Kepada', r.pemakai.name),
     row('Nomor Penerimaan', r.nomor_penerimaan),
     ...(r.catatan ? [row('Catatan', r.catatan)] : []),
   ].join('');
@@ -105,7 +105,7 @@ export function writePengembalianReceipt(win: Window, r: PengembalianReceipt): v
   const rows = [
     row('Inventory', dengan(r.inventory)),
     ...r.kelengkapan.map((k, idx) => row(idx === 0 ? 'Kelengkapan' : '', dengan(k))),
-    row('Dikembalikan Oleh', r.peminjam.name),
+    row('Dikembalikan Oleh', r.pemakai.name),
     row('Nomor Penerimaan', r.nomor_penerimaan),
     row('Tgl Serah Terima', formatTanggal(r.tanggal_penerimaan)),
     ...(r.catatan_kembali ? [row('Catatan Kembali', r.catatan_kembali)] : []),

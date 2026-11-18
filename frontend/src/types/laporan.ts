@@ -1,4 +1,4 @@
-export type JenisFotoLaporan = 'semua' | 'peminjaman' | 'pengembalian' | 'rusak';
+export type JenisFotoLaporan = 'semua' | 'pemakai' | 'pengembalian' | 'rusak';
 
 export interface LaporanFotoItem {
   id: string;

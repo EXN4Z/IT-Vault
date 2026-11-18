@@ -334,8 +334,8 @@ export default function InventoryPage() {
       },
     },
     {
-      key: 'peminjam', header: 'Peminjam', width: 'minmax(0,1fr)', sortable: true,
-      cell: (i) => <span className="truncate">{i.peminjam?.name ?? '-'}</span>,
+      key: 'pemakai_saat_ini', header: 'Pemakai', width: 'minmax(0,1fr)', sortable: true,
+      cell: (i) => <span className="truncate">{i.pemakai_saat_ini?.name ?? '-'}</span>,
     },
     {
       key: 'status', header: 'Status', width: '170px', align: 'left', sortable: true,
@@ -480,7 +480,7 @@ export default function InventoryPage() {
 
         {printError && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{printError}</p>}
         <SegmentedTabs tabs={TABS} value={tab} onChange={changeTab} />
-        <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, kategori, merk, type, serial number, atau peminjam..." />
+        <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, kategori, merk, type, serial number, atau pemakai..." />
 
         {/* counter data */}
         <p className="text-[11px] text-ink-muted">
