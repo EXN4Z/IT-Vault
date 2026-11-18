@@ -63,14 +63,14 @@ class PeminjamanController extends Controller
                 ]);
 
                 // barang utama selalu jadi dipakai
-                $locked->update(['status' => 'dipakai', 'peminjam_id' => $data['user_id']]);
+                $locked->update(['status' => 'dipakai', 'pemakai_saat_ini_id' => $data['user_id']]);
 
                 // kelengkapan: peminjamnya selalu ikut barang utama; statusnya jadi dipakai
                 // hanya kalau sedang tersedia (yang rusak / diperbaiki tetap statusnya).
                 // Tiap kelengkapan dicatat ikut dipakai di riwayat.
                 foreach ($locked->children()->get() as $child) {
                     $child->update([
-                        'peminjam_id' => $data['user_id'],
+                        'pemakai_saat_ini_id' => $data['user_id'],
                         'status' => $child->status === 'tersedia' ? 'dipakai' : $child->status,
                     ]);
 
@@ -131,7 +131,7 @@ class PeminjamanController extends Controller
                 $kondisi = $child->status === 'dipakai' ? 'tersedia' : $child->status;
 
                 // parent_id tidak berubah, jadi hook link di model tidak ikut jalan
-                $child->update(['peminjam_id' => null, 'status' => $kondisi]);
+                $child->update(['pemakai_saat_ini_id' => null, 'status' => $kondisi]);
 
                 $ditutup = PeminjamanItem::where('pemakai_id', $pemakai->id)
                     ->where('inventory_id', $child->id)
@@ -152,7 +152,7 @@ class PeminjamanController extends Controller
 
             // barang utama: dipakai jadi tersedia, kalau rusak / diperbaiki tetap statusnya (sama seperti kelengkapan)
             $kondisiUtama = $locked->status === 'dipakai' ? 'tersedia' : $locked->status;
-            $locked->update(['peminjam_id' => null, 'status' => $kondisiUtama]);
+            $locked->update(['pemakai_saat_ini_id' => null, 'status' => $kondisiUtama]);
 
             $pemakai->update([
                 'tanggal_pengembalian' => $data['tanggal_pengembalian'],
@@ -184,7 +184,7 @@ class PeminjamanController extends Controller
     // sebagai barang utama (pemakai sendiri) dan sebagai kelengkapan (ikut barang utamanya)
     public function riwayat(Inventory $inventory): JsonResponse
     {
-        $sebagaiUtama = $inventory->pemakai()->with('peminjam:id,name')->get()->map(fn (Pemakai $p) => [
+        $sebagaiUtama = $inventory->pemakai()->with('user:id,name')->get()->map(fn (Pemakai $p) => [
             '_t' => $p->created_at,
             'id' => 'p'.$p->id,
             'peran' => 'utama',
@@ -195,7 +195,7 @@ class PeminjamanController extends Controller
             // waktu lengkap (ISO 8601, UTC); jamnya diformat di browser sesuai zona waktu pengguna
             'waktu_penerimaan' => $p->created_at?->toIso8601String(),
             'waktu_pengembalian' => $p->waktu_pengembalian?->toIso8601String(),
-            'peminjam' => $p->peminjam?->name,
+            'pemakai' => $p->user?->name,
             'induk' => null,
             'keterangan' => $p->catatan,
             'catatan_kembali' => $p->catatan_kembali,
@@ -204,7 +204,7 @@ class PeminjamanController extends Controller
         ]);
 
         $sebagaiKelengkapan = $inventory->peminjamanItems()
-            ->with(['pemakai.peminjam:id,name', 'pemakai.inventory:id,kode_inventory,nama'])
+            ->with(['pemakai.user:id,name', 'pemakai.inventory:id,kode_inventory,nama'])
             ->get()
             ->map(fn (PeminjamanItem $i) => [
                 '_t' => $i->created_at,
@@ -216,7 +216,7 @@ class PeminjamanController extends Controller
                 'tanggal_pengembalian' => $i->dikembalikan_at?->format('Y-m-d'),
                 'waktu_penerimaan' => $i->pemakai->created_at?->toIso8601String(),
                 'waktu_pengembalian' => $i->dikembalikan_at?->toIso8601String(),
-                'peminjam' => $i->pemakai->peminjam?->name,
+                'pemakai' => $i->pemakai->user?->name,
                 'induk' => $i->pemakai->inventory?->only(['id', 'kode_inventory', 'nama']),
                 'keterangan' => $i->keterangan,
                 'catatan_kembali' => $i->catatan_kembali,
@@ -256,7 +256,7 @@ class PeminjamanController extends Controller
     {
         $pemakai = Pemakai::aktif()
             ->where('inventory_id', $inventory->id)
-            ->with('peminjam:id,name')
+            ->with('user:id,name')
             ->latest('id')
             ->first();
 
@@ -276,7 +276,7 @@ class PeminjamanController extends Controller
             'nomor_penerimaan' => $pemakai->nomor_penerimaan,
             'tanggal_penerimaan' => $pemakai->tanggal_penerimaan->format('Y-m-d'),
             'catatan' => $pemakai->catatan,
-            'peminjam' => $pemakai->peminjam->only(['id', 'name']),
+            'pemakai' => $pemakai->user->only(['id', 'name']),
             'inventory' => $inventory->only(self::STRUK_COLUMNS),
             'kelengkapan' => $inventory->children()->orderBy('kode_inventory')->get(self::STRUK_COLUMNS),
         ];
@@ -286,7 +286,7 @@ class PeminjamanController extends Controller
     // supaya struknya tetap sama walau link-nya berubah setelah dikembalikan
     private function pengembalianPayload(Pemakai $pemakai): array
     {
-        $pemakai->loadMissing(['peminjam:id,name', 'inventory:'.implode(',', self::LABEL_COLUMNS)]);
+        $pemakai->loadMissing(['user:id,name', 'inventory:'.implode(',', self::LABEL_COLUMNS)]);
 
         $kelengkapan = $pemakai->items()
             ->where('dilepas', false)
@@ -305,7 +305,7 @@ class PeminjamanController extends Controller
             'tanggal_pengembalian' => $pemakai->tanggal_pengembalian->format('Y-m-d'),
             'catatan' => $pemakai->catatan,
             'catatan_kembali' => $pemakai->catatan_kembali,
-            'peminjam' => $pemakai->peminjam->only(['id', 'name']),
+            'pemakai' => $pemakai->user->only(['id', 'name']),
             'inventory' => [
                 ...$pemakai->inventory->only(self::LABEL_COLUMNS),
                 'kondisi_kembali' => $pemakai->kondisi_kembali,

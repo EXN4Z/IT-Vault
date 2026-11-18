@@ -334,7 +334,7 @@ export default function InventoryPage() {
       },
     },
     {
-      key: 'pemakaiSaatIni', header: 'Pemakai', width: 'minmax(0,1fr)', sortable: true,
+      key: 'pemakai', header: 'Pemakai', width: 'minmax(0,1fr)', sortable: true,
       cell: (i) => <span className="truncate">{i.pemakai_saat_ini?.name ?? '-'}</span>,
     },
     {

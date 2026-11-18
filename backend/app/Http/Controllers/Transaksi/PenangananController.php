@@ -101,7 +101,7 @@ class PenangananController extends Controller
                     'lapor_at' => now(),
                 ]);
 
-                // hanya status yang berubah; peminjam_id dibiarkan (barang tetap dipegang peminjamnya)
+                // hanya status yang berubah; pemakai_saat_ini_id dibiarkan (barang tetap dipegang peminjamnya)
                 $locked->update(['status' => 'menunggu_perbaikan']);
 
                 return $penanganan;
@@ -151,7 +151,7 @@ class PenangananController extends Controller
                 'diterima_oleh_user_id' => $user->id,
             ]);
 
-            // hanya status yang berubah; peminjam_id dibiarkan (kalau barang dipegang peminjam, tetap dipegang)
+            // hanya status yang berubah; pemakai_saat_ini_id dibiarkan (kalau barang dipegang peminjam, tetap dipegang)
             $inventory->update(['status' => 'diperbaiki']);
 
             return $locked;
@@ -199,9 +199,9 @@ class PenangananController extends Controller
                 'no_struk' => $this->nomorStruk(),
             ]);
 
-            // hanya status yang berubah; peminjam_id dibiarkan (barang tetap dipegang peminjamnya)
+            // hanya status yang berubah; pemakai_saat_ini_id dibiarkan (barang tetap dipegang peminjamnya)
             $inventory->update([
-                'status' => $berhasil ? ($inventory->peminjam_id !== null ? 'dipakai' : 'tersedia') : 'rusak_berat',
+                'status' => $berhasil ? ($inventory->pemakai_saat_ini_id !== null ? 'dipakai' : 'tersedia') : 'rusak_berat',
             ]);
 
             return $locked;
@@ -231,7 +231,7 @@ class PenangananController extends Controller
     {
         // TODO(permission): aktifkan lagi kalau hak akses role sudah diatur
         // (admin boleh semua barang, user peminjam hanya barang yang sedang ia pinjam)
-        // if (! $this->isAdmin($user) && $inventory->peminjam_id !== $user->id) {
+        // if (! $this->isAdmin($user) && $inventory->pemakai_saat_ini_id !== $user->id) {
         //     throw ValidationException::withMessages([
         //         'inventory' => 'Kamu hanya bisa melaporkan kerusakan barang yang sedang kamu pinjam.',
         //     ]);
@@ -253,7 +253,7 @@ class PenangananController extends Controller
     // pemakai berjalan yang membawa barang ini: pemakai sendiri (barang utama) atau milik barang utamanya (kelengkapan)
     private function peminjamanBerjalan(Inventory $inventory): ?Pemakai
     {
-        if ($inventory->peminjam_id === null) {
+        if ($inventory->pemakai_saat_ini_id === null) {
             return null;
         }
 

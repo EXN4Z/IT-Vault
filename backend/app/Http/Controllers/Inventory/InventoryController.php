@@ -32,7 +32,7 @@ class InventoryController extends Controller
         $status = $request->string('status')->toString();
 
         // kolom yang diizinkan untuk sorting
-        $allowedSorts = ['kode_inventory', 'nama', 'kategori', 'merk', 'jumlah', 'link', 'peminjam', 'status'];
+        $allowedSorts = ['kode_inventory', 'nama', 'kategori', 'merk', 'jumlah', 'link', 'pemakai', 'status'];
         $requestedSort = $request->string('sort_by')->toString();
         $sortBy = in_array($requestedSort, $allowedSorts, true) ? $requestedSort : 'kode_inventory';
         $sortDir = $request->string('sort_dir')->lower()->toString() === 'desc' ? 'desc' : 'asc';

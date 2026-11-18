@@ -23,7 +23,7 @@ class LaporanFotoController extends Controller
         if ($jenis === '' || $jenis === 'semua' || $jenis === 'pemakai') {
             $peminjamanQuery = Pemakai::with([
                 'inventory:id,kode_inventory,nama,merk,type,warna',
-                'peminjam:id,name,nik',
+                'user:id,name,nik',
             ])
                 ->whereNotNull('foto')
                 ->when($search !== '', function ($q) use ($search) {
@@ -33,7 +33,7 @@ class LaporanFotoController extends Controller
                         ->orWhereHas('inventory', fn ($i) => $i
                             ->whereRaw('LOWER(kode_inventory) LIKE ?', [$like])
                             ->orWhereRaw('LOWER(nama) LIKE ?', [$like]))
-                        ->orWhereHas('peminjam', fn ($u) => $u->whereRaw('LOWER(name) LIKE ?', [$like]))
+                        ->orWhereHas('user', fn ($u) => $u->whereRaw('LOWER(name) LIKE ?', [$like]))
                     );
                 })
                 ->latest('id')
@@ -53,7 +53,7 @@ class LaporanFotoController extends Controller
                     'tanggal' => $p->tanggal_penerimaan?->format('Y-m-d'),
                     'waktu' => $p->created_at?->toIso8601String(),
                     'sort_at' => $p->created_at?->timestamp ?? 0,
-                    'pelaku' => $p->peminjam?->name ?? '-',
+                    'pelaku' => $p->user?->name ?? '-',
                     'keterangan' => $p->catatan,
                     'inventory' => $p->inventory ? [
                         'id' => $p->inventory->id,

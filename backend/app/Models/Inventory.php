@@ -172,7 +172,7 @@ class Inventory extends Model
 
         // jangan menimpa pemakai lain: kelengkapan yang sedang dipakai karyawan A tidak boleh
         // dipasang ke barang utama yang dipakai karyawan B
-        if ($parent->status === 'dipakai' && $this->status === 'dipakai' && $this->peminjam_id !== $parent->peminjam_id) {
+        if ($parent->status === 'dipakai' && $this->status === 'dipakai' && $this->pemakai_saat_ini_id !== $parent->pemakai_saat_ini_id) {
             return 'Inventory ini sedang dipakai karyawan lain, jadi tidak bisa dipasang ke barang utama yang dipakai karyawan berbeda.';
         }
 
