@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, BellRing, ChevronDown, LogOut, Vault } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isChildActive, isItemActive, navItems, type NavItem } from './navigation';
+import { disablePush, enablePush, getPushSubscription, isPushSupported } from '../../lib/push';
 
 // class baris menu di panel (dipakai menu biasa, dropdown, dan anak dropdown)
 const rowBase =
@@ -34,7 +35,9 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
   const [dropdownOverrides, setDropdownOverrides] = useState<Record<string, boolean>>({});
 
   // state lokal sementara untuk push subscription (backend menyusul)
+  const pushSupported = isPushSupported();
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   const menuItems = navItems.filter((item) => item.section === 'menu');
   const systemItems = navItems.filter((item) => item.section === 'sistem');
@@ -45,9 +48,35 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
   const toggleDropdown = (item: NavItem) =>
     setDropdownOverrides((prev) => ({ ...prev, [item.label]: !isDropdownOpen(item) }));
 
-  const handleTogglePush = () => {
-    // TODO: hubungkan dengan PushManager / endpoint subscribe backend
-    setIsSubscribed((prev) => !prev);
+  useEffect(() => {
+    if (!pushSupported) return;
+    getPushSubscription().then((sub) => {
+      setIsSubscribed(!!sub && Notification.permission === 'granted');
+    });
+  }, [pushSupported]);
+
+  const handleTogglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (isSubscribed) {
+        await disablePush();
+        setIsSubscribed(false);
+      } else {
+        const result = await enablePush();
+        if (result === 'ok') {
+          setIsSubscribed(true);
+        } else if (result === 'denied') {
+          // ganti dengan toast yang kamu pakai
+          alert('Izin notifikasi ditolak. Aktifkan lewat pengaturan situs di browser.');
+        }
+      }
+    } catch (err) {
+      console.error('Gagal mengubah status notifikasi', err);
+      alert('Gagal mengubah status notifikasi. Coba lagi.');
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   // pindah halaman, lalu tutup drawer (khusus mobile)
@@ -184,8 +213,9 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
               <button
                 type="button"
                 aria-pressed={isSubscribed}
+                disabled={pushBusy || !pushSupported}
                 onClick={handleTogglePush}
-                className={`${rowBase} justify-between ${
+                className={`${rowBase} justify-between disabled:cursor-not-allowed disabled:opacity-60 ${
                   isSubscribed ? 'bg-selected text-ink font-semibold' : rowIdle
                 }`}
               >
@@ -195,12 +225,10 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
                 </span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                    isSubscribed
-                      ? 'bg-ink text-canvas'
-                      : 'bg-hover text-ink-muted'
+                    isSubscribed ? 'bg-ink text-canvas' : 'bg-hover text-ink-muted'
                   }`}
                 >
-                  {isSubscribed ? 'Aktif' : 'Mati'}
+                  {!pushSupported ? 'N/A' : isSubscribed ? 'Aktif' : 'Mati'}
                 </span>
               </button>
 

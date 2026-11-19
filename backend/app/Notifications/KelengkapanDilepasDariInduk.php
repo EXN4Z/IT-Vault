@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\MasterData\Inventory;
+use App\Models\Inventory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
