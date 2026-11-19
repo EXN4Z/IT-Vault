@@ -5,7 +5,7 @@ import Badge from '../../components/ui/Badge';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
 import { useAuth } from '../../context/AuthContext';
 import { getErrorMessage } from '../../lib/errors';
-import { formatTanggal } from '../../lib/waktu';
+import { formatLama, hariSejak, lamaSejak, tglJam } from '../../lib/waktu';
 import { inventoryService } from '../../services/inventoryService';
 import { penangananService } from '../../services/penangananService';
 import { INVENTORY_STATUSES, type InventoryRow, type InventoryStatus } from '../../types/inventory';
@@ -25,14 +25,6 @@ interface DashboardData {
   berhasil: number;
   rusakBerat: number;
   terlambat: number;
-}
-
-// selisih hari kalender antara 'YYYY-MM-DD' dan hari ini
-function hariSejak(tanggal: string): number {
-  const [y, m, d] = tanggal.split('-').map(Number);
-  const now = new Date();
-  const hariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.max(0, Math.round((hariIni.getTime() - new Date(y, m - 1, d).getTime()) / 86_400_000));
 }
 
 // semua angka dashboard diambil dari endpoint yang sudah ada (total tiap status = `total` dari paginasi)
@@ -81,6 +73,13 @@ export default function AdminDashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData>();
   const [error, setError] = useState('');
+
+  // lama menunggu ikut berjalan tanpa perlu muat ulang halaman
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     let batal = false;
@@ -220,19 +219,19 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="overflow-x-auto border-t border-line">
-            <table className="w-full min-w-[520px] text-left text-xs">
+            <table className="w-full min-w-[600px] text-left text-xs">
               <thead>
                 <tr className="text-ink-muted">
                   <th className="px-5 py-2.5 font-medium">Barang</th>
                   <th className="px-3 py-2.5 font-medium">Jenis</th>
                   <th className="px-3 py-2.5 font-medium">Pelapor</th>
-                  <th className="px-3 py-2.5 font-medium">Tanggal lapor</th>
+                  <th className="px-3 py-2.5 font-medium">Waktu lapor</th>
                   <th className="px-5 py-2.5 text-right font-medium">Menunggu</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
                 {data?.menunggu.map((p) => {
-                  const hari = hariSejak(p.tanggal_lapor);
+                  const hari = hariSejak(p.tanggal_lapor, now);
                   return (
                     <tr key={p.id}>
                       <td className="px-5 py-2.5">
@@ -241,11 +240,11 @@ export default function AdminDashboardPage() {
                       </td>
                       <td className="px-3 py-2.5 text-ink-soft">{p.jenis_label}</td>
                       <td className="px-3 py-2.5 text-ink-soft">{p.pelapor ?? '-'}</td>
-                      <td className="px-3 py-2.5 text-ink-soft">{formatTanggal(p.tanggal_lapor)}</td>
+                      <td className="px-3 py-2.5 text-ink-soft">{tglJam(p.tanggal_lapor, p.lapor_at)}</td>
                       <td
                         className={`px-5 py-2.5 text-right tabular-nums ${hari > BATAS_HARI ? 'font-semibold text-danger' : 'text-ink-soft'}`}
                       >
-                        {hari} hari
+                        {p.lapor_at ? formatLama(p.lapor_at, now) : lamaSejak(p.tanggal_lapor, null, now)}
                       </td>
                     </tr>
                   );

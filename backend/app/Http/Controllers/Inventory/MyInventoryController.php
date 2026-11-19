@@ -45,19 +45,30 @@ class MyInventoryController extends Controller
             ->get()
             ->keyBy('inventory_id');
 
-        $rows = $utama->map(function (Inventory $item) use ($kelengkapan, $pemakai, $penanganan) {
+        // penanganan yang selesai kurang dari 24 jam lalu: tetap tampil di "Laporan kerusakan" supaya hasilnya sempat terbaca
+        $selesai = Penanganan::where('status', 'selesai')
+            ->where('selesai_at', '>=', now()->subDay())
+            ->whereIn('inventory_id', $semuaId)
+            ->orderByDesc('selesai_at')
+            ->get()
+            ->unique('inventory_id')
+            ->keyBy('inventory_id');
+
+        $rows = $utama->map(function (Inventory $item) use ($kelengkapan, $pemakai, $penanganan, $selesai) {
             $peminjaman = $pemakai->get($item->id);
 
             return [
-                ...$this->itemPayload($item, $penanganan),
+                ...$this->itemPayload($item, $penanganan, $selesai),
                 'kategori' => $item->kategori?->nama,
                 'nomor_penerimaan' => $peminjaman?->nomor_penerimaan,
                 'tanggal_penerimaan' => $peminjaman?->tanggal_penerimaan?->format('Y-m-d'),
+                // jam pencatatan serah terima (ISO 8601, diformat di browser)
+                'waktu_penerimaan' => $peminjaman?->created_at?->toIso8601String(),
                 'catatan' => $peminjaman?->catatan,
                 // pengembalian hanya untuk barang yang statusnya dipakai (yang sedang rusak / diperbaiki ditangani admin dulu)
                 'bisa_dikembalikan' => $item->status === 'dipakai',
                 'kelengkapan' => $kelengkapan->get($item->id, collect())
-                    ->map(fn (Inventory $k) => $this->itemPayload($k, $penanganan))
+                    ->map(fn (Inventory $k) => $this->itemPayload($k, $penanganan, $selesai))
                     ->values(),
             ];
         })->values();
@@ -65,10 +76,60 @@ class MyInventoryController extends Controller
         return response()->json($rows);
     }
 
+    // GET /my/riwayat-perbaikan?page=1&per_page=2 -> perbaikan yang sudah selesai pada barang milik user, terbaru di atas.
+    // "Milik user" = barang yang ia pakai saat dilaporkan, atau laporan yang ia buat sendiri
+    // (pakai catatan di penanganan, bukan pemegang sekarang, jadi riwayatnya tetap ada setelah barang dikembalikan)
+    public function riwayatPerbaikan(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $perPage = min(max($request->integer('per_page', 2), 1), 20);
+
+        $paginator = Penanganan::query()
+            ->with('inventory:id,kode_inventory,nama,merk')
+            ->where('status', 'selesai')
+            ->where(fn ($q) => $q
+                ->where('dilaporkan_oleh_user_id', $user->id)
+                ->orWhereHas('pemakai', fn ($p) => $p->where('user_id', $user->id)))
+            ->orderByDesc('selesai_at')
+            ->orderByDesc('id')
+            ->paginate($perPage)
+            ->through(fn (Penanganan $p) => [
+                'id' => $p->id,
+                'kode_inventory' => $p->inventory?->kode_inventory,
+                'nama' => $p->inventory?->nama ?: $p->inventory?->merk ?: $p->inventory?->kode_inventory,
+                'jenis_label' => Penanganan::JENIS[$p->jenis_kerusakan] ?? $p->jenis_kerusakan,
+                'keluhan' => $p->keluhan,
+                'hasil' => $p->hasil,
+                'catatan' => $p->catatan,
+                'tanggal_lapor' => $p->tanggal_lapor->format('Y-m-d'),
+                'lapor_at' => $p->lapor_at?->toIso8601String(),
+                'tanggal_selesai' => $p->tanggal_selesai?->format('Y-m-d'),
+                'selesai_at' => $p->selesai_at?->toIso8601String(),
+            ]);
+
+        return response()->json($paginator);
+    }
+
+    // ringkasan satu penanganan untuk dashboard user (waktu *_at dalam ISO 8601, jamnya diformat di browser)
+    private function ringkasPenanganan(Penanganan $p): array
+    {
+        return [
+            'id' => $p->id,
+            'status' => $p->status,
+            'jenis_label' => Penanganan::JENIS[$p->jenis_kerusakan] ?? $p->jenis_kerusakan,
+            'tanggal_lapor' => $p->tanggal_lapor->format('Y-m-d'),
+            'lapor_at' => $p->lapor_at?->toIso8601String(),
+            'tanggal_selesai' => $p->tanggal_selesai?->format('Y-m-d'),
+            'selesai_at' => $p->selesai_at?->toIso8601String(),
+            'hasil' => $p->hasil,
+        ];
+    }
+
     // bentuk satu barang (utama atau kelengkapan) di dashboard user
-    private function itemPayload(Inventory $item, Collection $penanganan): array
+    private function itemPayload(Inventory $item, Collection $penanganan, Collection $selesai): array
     {
         $terbuka = $penanganan->get($item->id);
+        $baruSelesai = $selesai->get($item->id);
 
         return [
             'id' => $item->id,
@@ -78,15 +139,12 @@ class MyInventoryController extends Controller
             'type' => $item->type,
             'warna' => $item->warna,
             'serial_number' => $item->serial_number,
+            'foto_url' => $item->foto_url,
             'status' => $item->status,
-            'penanganan' => $terbuka ? [
-                'id' => $terbuka->id,
-                'status' => $terbuka->status,
-                'jenis_label' => Penanganan::JENIS[$terbuka->jenis_kerusakan] ?? $terbuka->jenis_kerusakan,
-                'tanggal_lapor' => $terbuka->tanggal_lapor->format('Y-m-d'),
-            ] : null,
-            // sama dengan aturan di PenangananController: belum dijual dan belum punya penanganan yang berjalan
-            'bisa_dilapor' => $item->status !== 'dijual' && $terbuka === null,
+            'penanganan' => $terbuka ? $this->ringkasPenanganan($terbuka) : null,
+            'penanganan_selesai' => $baruSelesai ? $this->ringkasPenanganan($baruSelesai) : null,
+            // sama dengan aturan di PenangananController: status Tersedia / Dipakai dan belum punya penanganan yang berjalan
+            'bisa_dilapor' => $item->laporError() === null && $terbuka === null,
         ];
     }
 }

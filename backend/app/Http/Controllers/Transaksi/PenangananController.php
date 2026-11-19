@@ -20,6 +20,7 @@ use Throwable;
 use App\Notifications\InventoryKerusakanDilaporkan;
 use App\Notifications\InventoryKerusakanSelesai;
 use Illuminate\Support\Facades\Log;
+use App\Models\PeminjamanItem;
 use Illuminate\Support\Facades\Notification;
 
 class PenangananController extends Controller
@@ -172,10 +173,10 @@ class PenangananController extends Controller
     public function selesai(SelesaikanPenangananRequest $request, Penanganan $penanganan): JsonResponse
     {
         // hanya admin: dibatasi lewat middleware role:admin di routes/api.php
+        $user = $request->user();
         $data = $request->validated();
-        $fotoPemakaiDihapus = [];
 
-        $selesai = DB::transaction(function () use ($penanganan, $data, &$fotoPemakaiDihapus) {
+        $selesai = DB::transaction(function () use ($penanganan, $data, $user) {
             // kunci laporannya lalu cek ulang, supaya dua admin yang menyelesaikan bersamaan tidak lolos
             $locked = Penanganan::lockForUpdate()->findOrFail($penanganan->id);
 
@@ -215,38 +216,70 @@ class PenangananController extends Controller
                 return $locked;
             }
 
-            // rusak berat: peminjaman yang masih berjalan dihapus dan barang tidak lagi dipegang siapa pun.
-            // Hanya untuk barang utama; pada kelengkapan, catatan peminjamannya milik barang utamanya.
             if ($inventory->parent_id === null) {
-                Pemakai::aktif()->where('inventory_id', $inventory->id)->get()->each(
-                    function (Pemakai $pemakai) use (&$fotoPemakaiDihapus) {
-                        // lepas rujukan dari laporan penanganan dulu, supaya tidak ditolak foreign key
-                        Penanganan::where('pemakai_id', $pemakai->id)->update(['pemakai_id' => null]);
-
-                        if ($pemakai->foto) {
-                            $fotoPemakaiDihapus[] = $pemakai->foto;
-                        }
-                        $pemakai->delete();
-                    }
-                );
+                // barang utama rusak berat: peminjaman yang berjalan ditutup seperti PeminjamanController@kembalikan
+                $this->tutupPeminjamanRusakBerat($inventory, $user, $data['tanggal_selesai']);
+                $inventory->update(['status' => 'rusak_berat', 'pemakai_saat_ini_id' => null]);
+            } else {
+                // kelengkapan: catatan peminjamannya milik barang utamanya, jadi tidak disentuh; hanya statusnya
+                $inventory->update(['status' => 'rusak_berat']);
             }
-
-            $inventory->update([
-                'status' => 'rusak_berat',
-                'pemakai_saat_ini_id' => null,
-            ]);
 
             return $locked;
         });
 
-        // file foto penerimaan dihapus setelah transaksi berhasil
-        foreach ($fotoPemakaiDihapus as $foto) {
-            Storage::disk('public')->delete($foto);
-        }
-
-        $this->kirimNotifikasiSelesai($selesai, $request->user());
+        $this->kirimNotifikasiSelesai($selesai, $user);
 
         return response()->json($this->payload($selesai->load(['inventory:id,kode_inventory,nama,merk,type,serial_number,warna', 'pelapor:id,name', 'penerima:id,name'])));
+    }
+
+    // menutup peminjaman yang masih berjalan untuk barang utama yang dinyatakan rusak berat.
+    // Logikanya sama dengan PeminjamanController@kembalikan: riwayat pemakai dan item kelengkapan tetap ada.
+    private function tutupPeminjamanRusakBerat(Inventory $inventory, User $penutup, string $tanggal): void
+    {
+        $pemakai = Pemakai::aktif()
+            ->where('inventory_id', $inventory->id)
+            ->latest('id')
+            ->first();
+
+        // barang tidak sedang dipinjam (mis. dilaporkan saat tersedia): tidak ada yang ditutup
+        if (! $pemakai) {
+            return;
+        }
+
+        foreach ($inventory->children()->get() as $child) {
+            // yang tadinya dipakai jadi tersedia, yang rusak / diperbaiki tetap statusnya
+            $kondisi = $child->status === 'dipakai' ? 'tersedia' : $child->status;
+
+            $child->update(['pemakai_saat_ini_id' => null, 'status' => $kondisi]);
+
+            $ditutup = PeminjamanItem::where('pemakai_id', $pemakai->id)
+                ->where('inventory_id', $child->id)
+                ->whereNull('dikembalikan_at')
+                ->update(['dikembalikan_at' => now(), 'kondisi_kembali' => $kondisi]);
+
+            // kelengkapan dari sebelum riwayat item ada: catat sekarang supaya tetap muncul di struk
+            if ($ditutup === 0) {
+                PeminjamanItem::create([
+                    'pemakai_id' => $pemakai->id,
+                    'inventory_id' => $child->id,
+                    'keterangan' => PeminjamanItem::KETERANGAN_IKUT,
+                    'dikembalikan_at' => now(),
+                    'kondisi_kembali' => $kondisi,
+                ]);
+            }
+        }
+
+        // tanggal pengembalian tidak boleh mendahului tanggal penerimaan
+        $tanggalKembali = max($tanggal, $pemakai->tanggal_penerimaan->format('Y-m-d'));
+
+        $pemakai->update([
+            'tanggal_pengembalian' => $tanggalKembali,
+            'waktu_pengembalian' => now(),
+            'kondisi_kembali' => 'rusak_berat',
+            'catatan_kembali' => "Barang dinyatakan rusak berat setelah penanganan, ditutup otomatis.",
+            'dikembalikan_oleh' => $penutup->id,
+        ]);
     }
 
     // format: PNG- + 6 karakter acak + jam-menit-detik, mis. PNG-95AYFF-131126 (dicek unik)
@@ -265,7 +298,7 @@ class PenangananController extends Controller
     }
 
     // aturan lapor: admin boleh semua barang, peminjam hanya barang yang sedang ia pinjam;
-    // barang yang sudah dijual atau masih punya penanganan terbuka tidak bisa dilaporkan
+    // hanya barang berstatus Tersedia / Dipakai (lihat Inventory::laporError) yang belum punya penanganan terbuka
     private function ensureBisaDilapor(Inventory $inventory, User $user): void
     {
         if (! $this->isAdmin($user) && $inventory->pemakai_saat_ini_id !== $user->id) {
@@ -274,10 +307,8 @@ class PenangananController extends Controller
             ]);
         }
 
-        if ($inventory->status === 'dijual') {
-            throw ValidationException::withMessages([
-                'inventory' => 'Inventory yang sudah dijual tidak bisa dilaporkan.',
-            ]);
+        if ($error = $inventory->laporError()) {
+            throw ValidationException::withMessages(['inventory' => $error]);
         }
 
         if (Penanganan::terbuka()->where('inventory_id', $inventory->id)->exists()) {

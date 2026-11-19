@@ -13,12 +13,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use App\Imports\InventoryBuktiImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use App\Exports\InventoryExport;
-use Illuminate\Support\Facades\Storage;
 
 class InventoryController extends Controller
 {
@@ -215,7 +215,22 @@ class InventoryController extends Controller
     // POST /inventory
     public function store(InventoryRequest $request): JsonResponse
     {
-        $inventory = Inventory::create($request->validated());
+        $data = $request->safe()->except(['foto', 'hapus_foto']);
+        $path = $request->hasFile('foto') ? $request->file('foto')->store('inventory', 'public') : null;
+
+        if ($path !== null) {
+            $data['foto'] = $path;
+        }
+
+        try {
+            $inventory = Inventory::create($data);
+        } catch (\Throwable $e) {
+            // gagal simpan: buang foto yang sempat tersimpan
+            if ($path !== null) {
+                Storage::disk('public')->delete($path);
+            }
+            throw $e;
+        }
 
         // kode_inventory diisi trigger database, jadi baca ulang dari tabel
         return response()->json($inventory->refresh()->load(self::WITH), 201);
@@ -229,8 +244,30 @@ class InventoryController extends Controller
             throw ValidationException::withMessages(['inventory' => $error]);
         }
 
-        $data = $request->validated();
-        unset($data['foto'], $data['hapus_foto']); // file diurus manual di bawah
+        $data = $request->safe()->except(['foto', 'hapus_foto']);
+        $fotoLama = $inventory->foto;
+        $path = null;
+
+        if ($request->hasFile('foto')) {
+            $path = $request->file('foto')->store('inventory', 'public');
+            $data['foto'] = $path;
+        } elseif ($request->boolean('hapus_foto')) {
+            $data['foto'] = null;
+        }
+
+        try {
+            $inventory->update($data);
+        } catch (\Throwable $e) {
+            if ($path !== null) {
+                Storage::disk('public')->delete($path);
+            }
+            throw $e;
+        }
+
+        // foto lama dibuang setelah data baru berhasil tersimpan
+        if ($fotoLama && array_key_exists('foto', $data)) {
+            Storage::disk('public')->delete($fotoLama);
+        }
 
         $fotoLama = $inventory->foto;
         $gantiFoto = $request->hasFile('foto');
@@ -259,7 +296,12 @@ class InventoryController extends Controller
             throw ValidationException::withMessages(['inventory' => $error]);
         }
 
+        $foto = $inventory->foto;
         $inventory->delete();
+
+        if ($foto) {
+            Storage::disk('public')->delete($foto);
+        }
 
         return response()->noContent();
     }

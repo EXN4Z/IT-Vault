@@ -1,12 +1,14 @@
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
+import { ImageOff, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
+import ImageZoomModal from '../../../components/modal/ImageZoomModal';
 import FormField, { inputClass, textareaClass } from '../../../components/form/FormField';
 import ComboBox, { type ComboboxOption } from '../../../components/form/ComboBox';
 import DatePicker from '../../../components/form/DatePicker';
 import { btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
 import { inventoryService } from '../../../services/inventoryService';
 import { getErrorMessage, getFieldErrors } from '../../../lib/errors';
+import { shrinkImage } from '../../../lib/image';
 import type { InventoryOptions, InventoryRow } from '../../../types/inventory';
 import type { Option } from '../../../types/user';
 
@@ -16,10 +18,6 @@ interface InventoryFormModalProps {
   onClose: () => void;
   onSaved: () => void;
 }
-
-// batas foto: samakan dengan aturan di backend (max:2048 KB, jpg/png/webp)
-const MAX_FOTO_BYTES = 2 * 1024 * 1024;
-const FOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 // semua isi form disimpan sebagai string dulu, baru diubah ke angka / null saat dikirim
 interface FormState {
@@ -92,22 +90,37 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
   const [prevOpen, setPrevOpen] = useState(false);
   const [options, setOptions] = useState<InventoryOptions | null>(null);
 
-  // ===== foto =====
-  const [fotoBaru, setFotoBaru] = useState<File | null>(null); // file yang baru dipilih (belum diupload)
-  const [previewBaru, setPreviewBaru] = useState<string | null>(null);
-  const [hapusFoto, setHapusFoto] = useState(false); // minta server membuang foto yang sudah tersimpan
+  // foto: file baru yang dipilih, atau tandai foto lama dihapus; kalau dua-duanya kosong foto lama dibiarkan
   const fotoInputRef = useRef<HTMLInputElement>(null);
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [hapusFoto, setHapusFoto] = useState(false);
+  const [fotoBusy, setFotoBusy] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
 
-  // preview foto yang baru dipilih; URL-nya dilepas lagi saat foto diganti / modal ditutup
-  useEffect(() => {
-    if (!fotoBaru) return;
-    const url = URL.createObjectURL(fotoBaru);
-    setPreviewBaru(url);
-    return () => URL.revokeObjectURL(url);
-  }, [fotoBaru]);
+  // pratinjau file baru (dilepas lagi saat file berubah)
+  const fotoPreview = useMemo(() => (fotoFile ? URL.createObjectURL(fotoFile) : null), [fotoFile]);
+  useEffect(() => () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); }, [fotoPreview]);
 
-  // yang ditampilkan: foto baru > foto tersimpan (kecuali diminta dihapus) > kosong
-  const previewUrl = fotoBaru ? previewBaru : hapusFoto ? null : (inventory?.foto_url ?? null);
+  // yang tampil: file baru > foto lama (kecuali ditandai dihapus) > placeholder
+  const fotoUrl = fotoPreview ?? (hapusFoto ? null : inventory?.foto_url ?? null);
+
+  const pilihFoto = async (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    e.target.value = ''; // supaya foto yang sama bisa dipilih lagi
+    if (!picked || !picked.type.startsWith('image/')) return;
+
+    setFotoBusy(true);
+    setFotoFile(await shrinkImage(picked));
+    setHapusFoto(false);
+    setErrors((prev) => ({ ...prev, foto: '' }));
+    setFotoBusy(false);
+  };
+
+  // foto baru dibatalkan dulu (kembali ke foto lama); kalau tidak ada foto baru, foto lama ditandai dihapus
+  const hapusFotoDipilih = () => {
+    if (fotoFile) setFotoFile(null);
+    else setHapusFoto(true);
+  };
 
   const opts = useMemo(() => ({
     kategori: toOptions(options?.kategori),
@@ -126,7 +139,7 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
       setForm(toForm(inventory));
       setErrors({});
       setError('');
-      setFotoBaru(null);
+      setFotoFile(null);
       setHapusFoto(false);
       setOptions(null); // dimuat ulang tiap dibuka, supaya kategori / barang utama yang baru dibuat ikut muncul
     }
@@ -153,33 +166,6 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
     value: form[key],
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setField(key)(e.target.value),
   });
-
-  // pilih foto: cek tipe & ukuran dulu di browser, supaya tidak menunggu penolakan dari server
-  const pilihFoto = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // supaya file yang sama bisa dipilih ulang
-    if (!file) return;
-
-    if (!FOTO_TYPES.includes(file.type)) {
-      setErrors((prev) => ({ ...prev, foto: 'Foto harus berformat JPG, PNG, atau WEBP.' }));
-      return;
-    }
-    if (file.size > MAX_FOTO_BYTES) {
-      setErrors((prev) => ({ ...prev, foto: 'Ukuran foto maksimal 2 MB.' }));
-      return;
-    }
-
-    setErrors((prev) => ({ ...prev, foto: '' }));
-    setFotoBaru(file);
-    setHapusFoto(false);
-  };
-
-  // buang foto: kalau sudah ada foto tersimpan, server diminta menghapusnya saat disimpan
-  const lepasFoto = () => {
-    setFotoBaru(null);
-    setErrors((prev) => ({ ...prev, foto: '' }));
-    if (inventory?.foto_url) setHapusFoto(true);
-  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -218,15 +204,9 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
     };
 
     try {
-      // karena membawa file, body dikirim sebagai FormData (multipart)
-      const body = new FormData();
-      // null dikirim sebagai string kosong; Laravel mengubahnya kembali jadi null
-      Object.entries(payload).forEach(([key, value]) => body.append(key, value === null ? '' : String(value)));
-      if (fotoBaru) body.append('foto', fotoBaru);
-      else if (hapusFoto) body.append('hapus_foto', '1');
-
-      if (inventory) await inventoryService.update(inventory.id, body);
-      else await inventoryService.create(body);
+      const foto = { file: fotoFile, hapus: hapusFoto };
+      if (inventory) await inventoryService.update(inventory.id, payload, foto);
+      else await inventoryService.create(payload, foto);
       onSaved();
     } catch (err) {
       const fieldErrors = getFieldErrors(err);
@@ -259,49 +239,51 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
           <p className="col-span-2 rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>
         )}
 
-        <FormField label="Nama" error={errors.nama} className="col-span-2">
-          <input {...bind('nama')} placeholder="Nama inventory" className={inputClass} />
-        </FormField>
+        {/* foto inventory (opsional): ada foto = tampil dan bisa diklik untuk zoom, tidak ada = placeholder */}
+        <div className="col-span-2 flex items-center gap-4">
+          {fotoUrl ? (
+            <button
+              type="button"
+              title="Perbesar foto"
+              aria-label="Perbesar foto inventory"
+              onClick={() => setZoomOpen(true)}
+              className="size-24 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-line bg-hover p-0 transition hover:opacity-90"
+            >
+              <img src={fotoUrl} alt="Foto inventory" className="size-full object-cover" />
+            </button>
+          ) : (
+            <div className="grid size-24 shrink-0 place-items-center rounded-lg border border-dashed border-line bg-hover text-ink-muted" role="img" aria-label="Tanpa foto">
+              <span className="flex flex-col items-center gap-1.5 text-[11px] font-medium">
+                <ImageOff size={22} />
+                Tanpa Foto
+              </span>
+            </div>
+          )}
 
-        {/* foto: kotak pratinjau + tombol pilih / ganti / hapus */}
-        <FormField label="Foto" error={errors.foto} className="col-span-2">
-          <div className="flex items-center gap-3">
-            <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-lg border border-line bg-hover text-ink-muted">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Foto inventory" className="size-full object-cover" />
-              ) : (
-                <ImagePlus size={22} />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-xs font-medium text-ink-soft">
+              Foto inventory <span className="font-normal text-ink-muted">(opsional)</span>
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={btnOutline} onClick={() => fotoInputRef.current?.click()} disabled={saving || fotoBusy}>
+                {fotoBusy ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+                {fotoUrl ? 'Ganti foto' : 'Pilih foto'}
+              </button>
+              {fotoUrl && (
+                <button type="button" className={btnOutline} onClick={hapusFotoDipilih} disabled={saving || fotoBusy}>
+                  <Trash2 size={14} />
+                  Hapus
+                </button>
               )}
             </div>
-
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={btnOutline}
-                  onClick={() => fotoInputRef.current?.click()}
-                  disabled={saving}
-                >
-                  {previewUrl ? 'Ganti foto' : 'Pilih foto'}
-                </button>
-                {previewUrl && (
-                  <button type="button" className={btnOutline} onClick={lepasFoto} disabled={saving}>
-                    <Trash2 size={14} />
-                    Hapus
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-ink-muted">JPG, PNG, atau WEBP, maksimal 2 MB.</p>
-            </div>
-
-            <input
-              ref={fotoInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={pilihFoto}
-              className="hidden"
-            />
+            <p className="text-[11px] text-ink-muted">JPG, PNG, atau WebP. Klik foto untuk memperbesar.</p>
+            {errors.foto && <p className="text-xs text-danger">{errors.foto}</p>}
+            <input ref={fotoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pilihFoto} />
           </div>
+        </div>
+
+        <FormField label="Nama" error={errors.nama} className="col-span-2">
+          <input {...bind('nama')} placeholder="Nama inventory" className={inputClass} />
         </FormField>
 
         <FormField label="Kategori" required error={errors.kategori_id} className="col-span-2">
@@ -369,6 +351,8 @@ export default function InventoryFormModal({ open, inventory, onClose, onSaved }
           <textarea {...bind('keterangan')} rows={3} placeholder="Catatan tambahan" className={textareaClass} />
         </FormField>
       </form>
+
+      <ImageZoomModal open={zoomOpen} onClose={() => setZoomOpen(false)} src={fotoUrl} alt="Foto inventory" />
     </Modal>
   );
 }

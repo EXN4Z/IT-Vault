@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Route di bawah dipakai bersama admin; controller membatasi user ke barang yang sedang ia pakai.
     // =========================================================================
     Route::get('/my/inventory', [MyInventoryController::class, 'index']);
+    Route::get('/my/riwayat-perbaikan', [MyInventoryController::class, 'riwayatPerbaikan']);
     Route::get('/inventory/{inventory}/struk', [PeminjamanController::class, 'struk']);
     Route::post('/inventory/{inventory}/kembalikan', [PeminjamanController::class, 'kembalikan']);
     Route::post('/inventory/{inventory}/lapor-kerusakan', [PenangananController::class, 'store']);

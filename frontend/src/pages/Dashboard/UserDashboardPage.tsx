@@ -1,45 +1,36 @@
 import { useEffect, useState } from 'react';
-import { LayoutGrid, List, Loader2, Package, Printer, Undo2, Wrench } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageOff, Loader2, Package, Printer, Undo2, Wrench } from 'lucide-react';
+import ImageZoomModal from '../../components/modal/ImageZoomModal';
 import Badge from '../../components/ui/Badge';
-import DataTable, { type Column } from '../../components/ui/DataTable';
-import SearchField from '../../components/ui/SearchField';
-import SegmentedTabs from '../../components/ui/SegmentedTabs';
+import { Pagination } from '../../components/ui/DataTable';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
 import { useAuth } from '../../context/AuthContext';
 import { getErrorMessage } from '../../lib/errors';
 import { openReceiptWindow, writeReceipt } from '../../lib/receipt';
-import { formatTanggal } from '../../lib/waktu';
+import { formatLama, lamaLalu, lamaSejak, tglJam, tglJamSama } from '../../lib/waktu';
 import { myInventoryService } from '../../services/myInventoryService';
 import { peminjamanService } from '../../services/peminjamanService';
 import { INVENTORY_STATUSES } from '../../types/inventory';
-import type { MyInventory, MyInventoryItem, MyPenanganan } from '../../types/myInventory';
+import type { MyInventory, MyInventoryItem, MyPenanganan, RiwayatPerbaikan } from '../../types/myInventory';
+import type { Paginated } from '../../types/user';
 import PenangananLaporModal from '../MasterData/Inventory/PenangananLaporModal';
 import NotificationPanel from './NotificationPanel';
 import UserReturnModal from './UserReturnModal';
 
-const VIEWS = [
-  { key: 'kartu', label: 'Kartu', icon: LayoutGrid },
-  { key: 'tabel', label: 'Tabel', icon: List },
-] as const;
-type ViewKey = (typeof VIEWS)[number]['key'];
-
 // tombol ikon kecil (sama dengan halaman Inventory)
 const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60';
-
-// selisih hari kalender antara 'YYYY-MM-DD' dan hari ini
-function hariSejak(tanggal: string): number {
-  const [y, m, d] = tanggal.split('-').map(Number);
-  const now = new Date();
-  const hariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.max(0, Math.round((hariIni.getTime() - new Date(y, m - 1, d).getTime()) / 86_400_000));
-}
 
 function StatusBadge({ status }: { status: MyInventoryItem['status'] }) {
   const st = INVENTORY_STATUSES.find((s) => s.key === status);
   return st ? <Badge dot={st.dot}>{st.label}</Badge> : null;
 }
 
-// satu unit di tabel: barang utama atau kelengkapannya (`induk` = barang utama yang memuatnya)
+const KARTU_PER_HALAMAN = 2; // tampilan kartu: 2 barang utama per halaman
+const LAPORAN_PER_HALAMAN = 2; // laporan kerusakan: 2 per halaman
+const RIWAYAT_PER_HALAMAN = 3; // riwayat perbaikan di kolom kanan: 3 per halaman, sisanya lewat paginasi
+const BATAS_LAPORAN_SELESAI_MS = 24 * 60 * 60 * 1000; // laporan yang sudah selesai tetap tampil sampai 24 jam
+
+// satu unit: barang utama atau kelengkapannya (`induk` = barang utama yang memuatnya)
 interface Unit {
   item: MyInventoryItem;
   induk: MyInventory;
@@ -76,14 +67,12 @@ function Spec({ name, value }: { name: string; value: string | null }) {
   );
 }
 
-// dashboard user: ringkasan ringkas, daftar barang dalam dua tampilan (kartu / tabel), dan laporan kerusakan berjalan
+// dashboard user: ringkasan ringkas, daftar barang dalam tampilan kartu, dan laporan kerusakan berjalan
 export default function UserDashboardPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<MyInventory[]>();
-  const [view, setView] = useState<ViewKey>('kartu');
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
+  const [kartuPage, setKartuPage] = useState(1);
+  const [laporanPage, setLaporanPage] = useState(1);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [printing, setPrinting] = useState<number | null>(null);
@@ -92,6 +81,18 @@ export default function UserDashboardPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [returnTarget, setReturnTarget] = useState<MyInventory | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+
+  const [riwayat, setRiwayat] = useState<Paginated<RiwayatPerbaikan>>();
+  const [riwayatPage, setRiwayatPage] = useState(1);
+  const [riwayatError, setRiwayatError] = useState('');
+
+  // lama pemakaian / laporan ikut berjalan tanpa perlu muat ulang halaman
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     let batal = false;
@@ -110,6 +111,26 @@ export default function UserDashboardPage() {
       batal = true;
     };
   }, [reloadKey]);
+
+  // riwayat perbaikan (tidak ikut daftar barang: tetap ada walau barangnya sudah dikembalikan)
+  useEffect(() => {
+    let batal = false;
+    myInventoryService
+      .riwayatPerbaikan(riwayatPage, RIWAYAT_PER_HALAMAN)
+      .then((d) => {
+        if (batal) return;
+        // halaman terakhir mungkin sudah kosong (data berkurang): mundur ke halaman terakhir yang ada
+        if (d.data.length === 0 && riwayatPage > 1) setRiwayatPage(Math.max(1, d.last_page));
+        else setRiwayat(d);
+        setRiwayatError('');
+      })
+      .catch((e) => {
+        if (!batal) setRiwayatError(getErrorMessage(e));
+      });
+    return () => {
+      batal = true;
+    };
+  }, [riwayatPage, reloadKey]);
 
   const reload = () => setReloadKey((k) => k + 1);
 
@@ -145,85 +166,50 @@ export default function UserDashboardPage() {
     { item: i as MyInventoryItem, induk: i, utama: true },
     ...i.kelengkapan.map((k) => ({ item: k, induk: i, utama: false })),
   ]);
-  const laporan: LaporanAktif[] = units.flatMap(({ item: b }) =>
-    b.penanganan ? [{ ...b.penanganan, kode: b.kode_inventory, nama: b.nama || b.merk || b.kode_inventory }] : [],
-  );
+  // laporan yang masih berjalan + yang selesai kurang dari 24 jam lalu (hilang sendiri lewat 24 jam, ikut jam yang berjalan)
+  const laporan: LaporanAktif[] = units
+    .flatMap(({ item: b }) => {
+      const selesaiBaru =
+        b.penanganan_selesai?.selesai_at &&
+        now.getTime() - new Date(b.penanganan_selesai.selesai_at).getTime() < BATAS_LAPORAN_SELESAI_MS
+          ? b.penanganan_selesai
+          : null;
+      return [b.penanganan, selesaiBaru].flatMap((p) =>
+        p ? [{ ...p, kode: b.kode_inventory, nama: b.nama || b.merk || b.kode_inventory }] : [],
+      );
+    })
+    .sort((a, b) => Number(a.status === 'selesai') - Number(b.status === 'selesai')); // yang berjalan di atas
   const bermasalah = units.filter(({ item }) => item.status !== 'dipakai' && item.status !== 'tersedia').length;
-  const terlama = Math.max(0, ...(items ?? []).map((i) => (i.tanggal_penerimaan ? hariSejak(i.tanggal_penerimaan) : 0)));
+  // pemakaian terlama = serah terima paling awal (tanggal, lalu jam pencatatan)
+  const tertua = (items ?? [])
+    .filter((i) => i.tanggal_penerimaan)
+    .sort((a, b) => a.tanggal_penerimaan!.localeCompare(b.tanggal_penerimaan!) || (a.waktu_penerimaan ?? '').localeCompare(b.waktu_penerimaan ?? ''))[0];
 
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? units.filter(({ item }) =>
-        [item.kode_inventory, item.nama, item.merk, item.type, item.serial_number].some((v) => v?.toLowerCase().includes(q)),
-      )
-    : units;
-  const pageCount = Math.max(1, Math.ceil(filtered.length / perPage));
-  const currentPage = Math.min(page, pageCount);
-  const rows = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+  // kartu
+  const kartuCount = Math.max(1, Math.ceil((items?.length ?? 0) / KARTU_PER_HALAMAN));
+  const kartuCurrent = Math.min(kartuPage, kartuCount);
+  const kartuRows = (items ?? []).slice((kartuCurrent - 1) * KARTU_PER_HALAMAN, kartuCurrent * KARTU_PER_HALAMAN);
+
+  // laporan kerusakan
+  const laporanCount = Math.max(1, Math.ceil(laporan.length / LAPORAN_PER_HALAMAN));
+  const laporanCurrent = Math.min(laporanPage, laporanCount);
+  const laporanRows = laporan.slice((laporanCurrent - 1) * LAPORAN_PER_HALAMAN, laporanCurrent * LAPORAN_PER_HALAMAN);
 
   const stats = [
     { label: 'Barang utama', value: String(items?.length ?? 0) },
     { label: 'Total unit', value: String(units.length) },
     { label: 'Perlu perhatian', value: String(bermasalah) },
-    { label: 'Pemakaian terlama', value: `${terlama} hari` },
-  ];
-
-  // ===== kolom tabel =====
-  const columns: Column<Unit>[] = [
-    { key: 'kode', header: 'Kode', width: '110px', cell: ({ item }) => <span className="truncate font-semibold">{item.kode_inventory}</span> },
-    {
-      key: 'barang', header: 'Barang', width: 'minmax(0,1.3fr)',
-      cell: ({ item }) => (
-        <span className="min-w-0">
-          <span className="block truncate font-medium">{item.nama || item.merk || '-'}</span>
-          <span className="block truncate text-[11px] text-ink-muted">{[item.merk, item.type, item.warna].filter(Boolean).join(' · ') || '-'}</span>
-        </span>
-      ),
-    },
-    {
-      key: 'jenis', header: 'Jenis', width: 'minmax(0,1fr)',
-      cell: ({ utama, induk }) =>
-        utama ? <span>Barang utama</span> : <span className="truncate text-ink-soft">Kelengkapan {induk.kode_inventory}</span>,
-    },
-    { key: 'serial', header: 'Serial number', width: 'minmax(0,1fr)', cell: ({ item }) => <span className="truncate">{item.serial_number ?? '-'}</span> },
-    { key: 'status', header: 'Status', width: '140px', cell: ({ item }) => <StatusBadge status={item.status} /> },
-    {
-      key: 'sejak', header: 'Dipakai sejak', width: '100px',
-      cell: ({ induk }) => <span>{induk.tanggal_penerimaan ? formatTanggal(induk.tanggal_penerimaan) : '-'}</span>,
-    },
-    {
-      key: 'aksi', header: 'Aksi', width: '84px', align: 'right',
-      cell: ({ item, induk, utama }) => (
-        <span className="flex items-center gap-0.5">
-          {item.bisa_dilapor && (
-            <button type="button" title="Lapor kerusakan" aria-label={`Lapor kerusakan ${item.kode_inventory}`} className={iconBtn} onClick={() => openReport(item)}>
-              <Wrench size={14} />
-            </button>
-          )}
-          {utama && induk.bisa_dikembalikan && (
-            <button type="button" title="Kembalikan" aria-label={`Kembalikan ${item.kode_inventory}`} className={iconBtn} onClick={() => openReturn(induk)}>
-              <Undo2 size={14} />
-            </button>
-          )}
-          {utama && induk.bisa_dikembalikan && (
-            <button type="button" title="Cetak struk" aria-label={`Cetak struk ${item.kode_inventory}`} className={iconBtn} disabled={printing === induk.id} onClick={() => printStruk(induk)}>
-              {printing === induk.id ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-            </button>
-          )}
-        </span>
-      ),
-    },
+    { label: 'Pemakaian terlama', value: tertua ? lamaSejak(tertua.tanggal_penerimaan!, tertua.waktu_penerimaan, now) : '-' },
   ];
 
   return (
     <div className="min-w-0 space-y-4">
-      {/* ===== judul + pilihan tampilan ===== */}
+      {/* ===== judul ===== */}
       <div className="flex flex-wrap items-end justify-between gap-3 px-1">
         <div className="min-w-0">
           <h1 className="text-xl font-bold">Inventory saya</h1>
           <p className="mt-0.5 truncate text-xs text-ink-muted">Halo, {user?.name}</p>
         </div>
-        {items && items.length > 0 && <SegmentedTabs tabs={VIEWS} value={view} onChange={setView} />}
       </div>
 
       {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
@@ -252,23 +238,35 @@ export default function UserDashboardPage() {
               {/* ===== ringkasan: satu strip tipis ===== */}
               <section className="grid grid-cols-2 divide-line rounded-xl border border-line bg-surface md:grid-cols-4 md:divide-x">
                 {stats.map((s) => (
-                  <div key={s.label} className="flex items-baseline justify-between gap-2 px-4 py-2.5 md:flex-col md:items-start md:gap-0">
+                  <div key={s.label} className="flex flex-col items-start px-4 py-2.5">
                     <p className="text-[11px] text-ink-muted">{s.label}</p>
-                    <p className="text-lg font-semibold tabular-nums leading-tight">{s.value}</p>
+                    <p className="text-base font-semibold tabular-nums leading-tight md:text-lg">{s.value}</p>
                   </div>
                 ))}
               </section>
 
               {/* ===== tampilan kartu ===== */}
-              {view === 'kartu' && (
+              <div className="space-y-3">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {items.map((item) => (
+                  {kartuRows.map((item) => (
                     <article key={item.id} className="flex min-w-0 flex-col rounded-xl border border-line bg-surface">
                       {/* kepala: nama, kode, status */}
                       <header className="flex items-start gap-3 p-4 pb-3">
-                        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-hover text-ink-muted">
-                          <Package size={18} />
-                        </span>
+                        {item.foto_url ? (
+                          <button
+                            type="button"
+                            title="Perbesar foto"
+                            aria-label={`Perbesar foto ${item.kode_inventory}`}
+                            onClick={() => setZoomUrl(item.foto_url)}
+                            className="size-12 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-line bg-hover p-0 transition hover:opacity-90"
+                          >
+                            <img src={item.foto_url} alt={`Foto ${item.nama || item.kode_inventory}`} loading="lazy" className="size-full object-cover" />
+                          </button>
+                        ) : (
+                          <span className="grid size-12 shrink-0 place-items-center rounded-lg border border-line bg-hover text-ink-muted" role="img" aria-label="Tanpa foto">
+                            <ImageOff size={18} />
+                          </span>
+                        )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold">{item.nama || item.merk || item.kode_inventory}</p>
                           <p className="truncate text-xs text-ink-muted">
@@ -291,8 +289,8 @@ export default function UserDashboardPage() {
                       <div className="flex items-center justify-between gap-2 border-y border-line bg-hover/40 px-4 py-2 text-[11px] text-ink-muted">
                         <span className="truncate">
                           Dipakai sejak{' '}
-                          <span className="font-medium text-ink">{item.tanggal_penerimaan ? formatTanggal(item.tanggal_penerimaan) : '-'}</span>
-                          {item.tanggal_penerimaan && ` (${hariSejak(item.tanggal_penerimaan)} hari)`}
+                          <span className="font-medium text-ink">{item.tanggal_penerimaan ? tglJamSama(item.tanggal_penerimaan, item.waktu_penerimaan) : '-'}</span>
+                          {item.tanggal_penerimaan && ` (${lamaSejak(item.tanggal_penerimaan, item.waktu_penerimaan, now)})`}
                         </span>
                         <span className="shrink-0 truncate">{item.nomor_penerimaan}</span>
                       </div>
@@ -355,60 +353,55 @@ export default function UserDashboardPage() {
                     </article>
                   ))}
                 </div>
-              )}
-
-              {/* ===== tampilan tabel ===== */}
-              {view === 'tabel' && (
-                <div className="min-w-0 space-y-3">
-                  <SearchField
-                    value={query}
-                    onChange={(v) => {
-                      setQuery(v);
-                      setPage(1);
-                    }}
-                    placeholder="Cari kode, nama, merk, serial number..."
-                  />
-                  <p className="text-[11px] text-ink-muted">
-                    Total: <span className="font-semibold text-ink">{filtered.length.toLocaleString('id-ID')}</span> unit
-                  </p>
-                  <DataTable
-                    columns={columns}
-                    data={rows}
-                    rowKey={({ item }) => item.id}
-                    minWidth={1100}
-                    emptyText="Tidak ada barang yang cocok."
-                    pagination={{
-                      page: currentPage,
-                      pageCount,
-                      onPageChange: setPage,
-                      perPage,
-                      onPerPageChange: (n) => {
-                        setPerPage(n);
-                        setPage(1);
-                      },
-                      perPageOptions: [5, 10, 25, 50],
-                    }}
-                  />
+                <div className="flex justify-end">
+                  <Pagination page={kartuCurrent} pageCount={kartuCount} onPageChange={setKartuPage} />
                 </div>
-              )}
+              </div>
 
               {/* ===== laporan kerusakan berjalan (hanya muncul kalau ada) ===== */}
               {laporan.length > 0 && (
                 <section className="rounded-xl border border-line bg-surface">
-                  <h2 className="px-4 pb-2 pt-3.5 text-sm font-semibold">Laporan kerusakan berjalan</h2>
+                  <h2 className="px-4 pb-2 pt-3.5 text-sm font-semibold">Laporan kerusakan</h2>
                   <ul className="divide-y divide-line/60 border-t border-line">
-                    {laporan.map((l) => (
-                      <li key={l.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{l.nama}</p>
-                          <p className="truncate text-xs text-ink-muted">
-                            {l.kode} · {l.jenis_label} · dilapor {formatTanggal(l.tanggal_lapor)} ({hariSejak(l.tanggal_lapor)} hari lalu)
-                          </p>
-                        </div>
-                        <Tahap aktif={l.status === 'dilaporkan' ? 0 : 1} />
-                      </li>
-                    ))}
+                    {laporanRows.map((l) => {
+                      const sejakLapor = l.lapor_at ? `${formatLama(l.lapor_at, now)} lalu` : lamaLalu(l.tanggal_lapor, null, now);
+                      return (
+                        <li key={l.id} className="space-y-2.5 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-x-6 sm:space-y-0">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="min-w-0 break-words text-sm font-medium">{l.nama}</p>
+                              {l.status === 'selesai' && (
+                                <span className="shrink-0">
+                                  <Badge dot={l.hasil === 'berhasil' ? 'bg-success' : 'bg-danger'}>
+                                    {l.hasil === 'berhasil' ? 'Berhasil' : 'Tidak bisa diperbaiki'}
+                                  </Badge>
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-ink-muted">
+                              {l.kode} · {l.jenis_label}
+                            </p>
+                            <p className="text-xs text-ink-muted">
+                              Dilapor <span className="whitespace-nowrap">{tglJamSama(l.tanggal_lapor, l.lapor_at)}</span>{' '}
+                              <span className="whitespace-nowrap">· {sejakLapor}</span>
+                            </p>
+                            {l.status === 'selesai' && l.tanggal_selesai && (
+                              <p className="text-xs text-ink-muted">
+                                Selesai <span className="whitespace-nowrap">{tglJam(l.tanggal_selesai, l.selesai_at)}</span>
+                                {l.selesai_at && <span className="whitespace-nowrap"> · {formatLama(l.selesai_at, now)} lalu</span>}
+                              </p>
+                            )}
+                          </div>
+                          <Tahap aktif={l.status === 'selesai' ? 2 : l.status === 'dilaporkan' ? 0 : 1} />
+                        </li>
+                      );
+                    })}
                   </ul>
+                  {laporanCount > 1 && (
+                    <div className="flex justify-end border-t border-line px-4 py-3">
+                      <Pagination page={laporanCurrent} pageCount={laporanCount} onPageChange={setLaporanPage} />
+                    </div>
+                  )}
                 </section>
               )}
             </>
@@ -419,38 +412,86 @@ export default function UserDashboardPage() {
         <aside className="min-w-0 space-y-4">
           <NotificationPanel />
 
-          {items && items.length > 0 && (
-            <section className="rounded-xl border border-line bg-surface p-4">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-sm font-semibold">Kondisi unit</h2>
-                <span className="text-xs text-ink-muted">{units.length} unit</span>
+          {/* ===== riwayat perbaikan barang user (3 per halaman, sisanya lewat paginasi) ===== */}
+          <section className="rounded-xl border border-line bg-surface p-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold">Riwayat perbaikan barang mu</h2>
+              {riwayat && riwayat.total > 0 && <span className="shrink-0 text-xs text-ink-muted">{riwayat.total} perbaikan</span>}
+            </div>
+
+            {riwayatError && <p className="mt-3 rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{riwayatError}</p>}
+
+            {!riwayat && !riwayatError && (
+              <div className="flex items-center justify-center gap-2 py-8 text-xs text-ink-muted">
+                <Loader2 size={14} className="animate-spin" />
+                Memuat...
               </div>
-              <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-selected">
-                {INVENTORY_STATUSES.map((s) => {
-                  const n = units.filter(({ item }) => item.status === s.key).length;
-                  return n > 0 ? <span key={s.key} className={s.dot} style={{ width: `${(n / units.length) * 100}%` }} /> : null;
-                })}
-              </div>
-              <ul className="mt-3 space-y-1.5">
-                {INVENTORY_STATUSES.map((s) => {
-                  const n = units.filter(({ item }) => item.status === s.key).length;
-                  return n > 0 ? (
-                    <li key={s.key} className="flex items-center justify-between text-xs">
-                      <span className="flex items-center gap-2 text-ink-soft">
-                        <span className={`size-2 rounded-full ${s.dot}`} />
-                        {s.label}
+            )}
+
+            {riwayat && riwayat.data.length === 0 && (
+              <p className="py-6 text-center text-xs text-ink-muted">Belum ada riwayat perbaikan.</p>
+            )}
+
+            {riwayat && riwayat.data.length > 0 && (
+              <ul className="mt-3 divide-y divide-line/60">
+                {riwayat.data.map((r) => (
+                  <li key={r.id} className="space-y-1.5 py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="break-words text-xs font-medium">{r.nama || r.kode_inventory}</p>
+                        <p className="break-words text-[11px] text-ink-muted">{[r.kode_inventory, r.jenis_label].filter(Boolean).join(' · ')}</p>
+                      </div>
+                      <span className="shrink-0">
+                        <Badge dot={r.hasil === 'berhasil' ? 'bg-success' : 'bg-danger'}>
+                          {r.hasil === 'berhasil' ? 'Berhasil' : 'Tidak bisa diperbaiki'}
+                        </Badge>
                       </span>
-                      <span className="font-medium tabular-nums">{n}</span>
-                    </li>
-                  ) : null;
-                })}
+                    </div>
+                    <p className="line-clamp-2 text-[11px] text-ink-soft">{r.keluhan}</p>
+                    <p className="text-[11px] text-ink-muted">
+                      Dilapor {tglJamSama(r.tanggal_lapor, r.lapor_at)}
+                      {r.tanggal_selesai && <> · selesai {tglJam(r.tanggal_selesai, r.selesai_at)}</>}
+                      {r.lapor_at && r.selesai_at && ` (${formatLama(r.lapor_at, r.selesai_at)})`}
+                    </p>
+                    {r.hasil === 'tidak_bisa_diperbaiki' && r.catatan && (
+                      <p className="line-clamp-2 text-[11px] text-ink-muted">Alasan: {r.catatan}</p>
+                    )}
+                  </li>
+                ))}
               </ul>
-            </section>
-          )}
+            )}
+
+            {riwayat && riwayat.last_page > 1 && (
+              <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                <button
+                  type="button"
+                  aria-label="Halaman sebelumnya"
+                  className={iconBtn}
+                  disabled={riwayat.current_page <= 1}
+                  onClick={() => setRiwayatPage(riwayat.current_page - 1)}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="text-[11px] tabular-nums text-ink-muted">
+                  Halaman {riwayat.current_page} / {riwayat.last_page}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Halaman berikutnya"
+                  className={iconBtn}
+                  disabled={riwayat.current_page >= riwayat.last_page}
+                  onClick={() => setRiwayatPage(riwayat.current_page + 1)}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </section>
         </aside>
       </div>
 
       <PenangananLaporModal open={reportOpen} inventory={reportTarget} onClose={() => setReportOpen(false)} onSaved={reload} />
+      <ImageZoomModal open={zoomUrl !== null} onClose={() => setZoomUrl(null)} src={zoomUrl} alt="Foto inventory" />
       <UserReturnModal open={returnOpen} inventory={returnTarget} onClose={() => setReturnOpen(false)} onSaved={reload} />
     </div>
   );
