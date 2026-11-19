@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ImageOff, LayoutGrid, List, Loader2, Package, Printer, Undo2, Wrench } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageOff, Loader2, Package, Printer, Undo2, Wrench } from 'lucide-react';
 import ImageZoomModal from '../../components/modal/ImageZoomModal';
 import Badge from '../../components/ui/Badge';
-import DataTable, { type Column } from '../../components/ui/DataTable';
-import SearchField from '../../components/ui/SearchField';
-import SegmentedTabs from '../../components/ui/SegmentedTabs';
+import { Pagination } from '../../components/ui/DataTable';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
 import { useAuth } from '../../context/AuthContext';
 import { getErrorMessage } from '../../lib/errors';
@@ -19,12 +17,6 @@ import PenangananLaporModal from '../MasterData/Inventory/PenangananLaporModal';
 import NotificationPanel from './NotificationPanel';
 import UserReturnModal from './UserReturnModal';
 
-const VIEWS = [
-  { key: 'kartu', label: 'Kartu', icon: LayoutGrid },
-  { key: 'tabel', label: 'Tabel', icon: List },
-] as const;
-type ViewKey = (typeof VIEWS)[number]['key'];
-
 // tombol ikon kecil (sama dengan halaman Inventory)
 const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -33,10 +25,12 @@ function StatusBadge({ status }: { status: MyInventoryItem['status'] }) {
   return st ? <Badge dot={st.dot}>{st.label}</Badge> : null;
 }
 
-const RIWAYAT_PER_HALAMAN = 2; // riwayat perbaikan di kolom kanan: sedikit per halaman, sisanya lewat paginasi
+const KARTU_PER_HALAMAN = 2; // tampilan kartu: 2 barang utama per halaman
+const LAPORAN_PER_HALAMAN = 2; // laporan kerusakan: 2 per halaman
+const RIWAYAT_PER_HALAMAN = 3; // riwayat perbaikan di kolom kanan: 3 per halaman, sisanya lewat paginasi
 const BATAS_LAPORAN_SELESAI_MS = 24 * 60 * 60 * 1000; // laporan yang sudah selesai tetap tampil sampai 24 jam
 
-// satu unit di tabel: barang utama atau kelengkapannya (`induk` = barang utama yang memuatnya)
+// satu unit: barang utama atau kelengkapannya (`induk` = barang utama yang memuatnya)
 interface Unit {
   item: MyInventoryItem;
   induk: MyInventory;
@@ -73,14 +67,12 @@ function Spec({ name, value }: { name: string; value: string | null }) {
   );
 }
 
-// dashboard user: ringkasan ringkas, daftar barang dalam dua tampilan (kartu / tabel), dan laporan kerusakan berjalan
+// dashboard user: ringkasan ringkas, daftar barang dalam tampilan kartu, dan laporan kerusakan berjalan
 export default function UserDashboardPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<MyInventory[]>();
-  const [view, setView] = useState<ViewKey>('kartu');
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
+  const [kartuPage, setKartuPage] = useState(1);
+  const [laporanPage, setLaporanPage] = useState(1);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [printing, setPrinting] = useState<number | null>(null);
@@ -193,15 +185,15 @@ export default function UserDashboardPage() {
     .filter((i) => i.tanggal_penerimaan)
     .sort((a, b) => a.tanggal_penerimaan!.localeCompare(b.tanggal_penerimaan!) || (a.waktu_penerimaan ?? '').localeCompare(b.waktu_penerimaan ?? ''))[0];
 
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? units.filter(({ item }) =>
-        [item.kode_inventory, item.nama, item.merk, item.type, item.serial_number].some((v) => v?.toLowerCase().includes(q)),
-      )
-    : units;
-  const pageCount = Math.max(1, Math.ceil(filtered.length / perPage));
-  const currentPage = Math.min(page, pageCount);
-  const rows = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+  // kartu
+  const kartuCount = Math.max(1, Math.ceil((items?.length ?? 0) / KARTU_PER_HALAMAN));
+  const kartuCurrent = Math.min(kartuPage, kartuCount);
+  const kartuRows = (items ?? []).slice((kartuCurrent - 1) * KARTU_PER_HALAMAN, kartuCurrent * KARTU_PER_HALAMAN);
+
+  // laporan kerusakan
+  const laporanCount = Math.max(1, Math.ceil(laporan.length / LAPORAN_PER_HALAMAN));
+  const laporanCurrent = Math.min(laporanPage, laporanCount);
+  const laporanRows = laporan.slice((laporanCurrent - 1) * LAPORAN_PER_HALAMAN, laporanCurrent * LAPORAN_PER_HALAMAN);
 
   const stats = [
     { label: 'Barang utama', value: String(items?.length ?? 0) },
@@ -210,62 +202,14 @@ export default function UserDashboardPage() {
     { label: 'Pemakaian terlama', value: tertua ? lamaSejak(tertua.tanggal_penerimaan!, tertua.waktu_penerimaan, now) : '-' },
   ];
 
-  // ===== kolom tabel =====
-  const columns: Column<Unit>[] = [
-    { key: 'kode', header: 'Kode', width: '110px', cell: ({ item }) => <span className="truncate font-semibold">{item.kode_inventory}</span> },
-    {
-      key: 'barang', header: 'Barang', width: 'minmax(0,1.3fr)',
-      cell: ({ item }) => (
-        <span className="min-w-0">
-          <span className="block truncate font-medium">{item.nama || item.merk || '-'}</span>
-          <span className="block truncate text-[11px] text-ink-muted">{[item.merk, item.type, item.warna].filter(Boolean).join(' · ') || '-'}</span>
-        </span>
-      ),
-    },
-    {
-      key: 'jenis', header: 'Jenis', width: 'minmax(0,1fr)',
-      cell: ({ utama, induk }) =>
-        utama ? <span>Barang utama</span> : <span className="truncate text-ink-soft">Kelengkapan {induk.kode_inventory}</span>,
-    },
-    { key: 'serial', header: 'Serial number', width: 'minmax(0,1fr)', cell: ({ item }) => <span className="truncate">{item.serial_number ?? '-'}</span> },
-    { key: 'status', header: 'Status', width: '140px', cell: ({ item }) => <StatusBadge status={item.status} /> },
-    {
-      key: 'sejak', header: 'Dipakai sejak', width: '150px',
-      cell: ({ induk }) => <span>{induk.tanggal_penerimaan ? tglJamSama(induk.tanggal_penerimaan, induk.waktu_penerimaan) : '-'}</span>,
-    },
-    {
-      key: 'aksi', header: 'Aksi', width: '84px', align: 'right',
-      cell: ({ item, induk, utama }) => (
-        <span className="flex items-center gap-0.5">
-          {item.bisa_dilapor && (
-            <button type="button" title="Lapor kerusakan" aria-label={`Lapor kerusakan ${item.kode_inventory}`} className={iconBtn} onClick={() => openReport(item)}>
-              <Wrench size={14} />
-            </button>
-          )}
-          {utama && induk.bisa_dikembalikan && (
-            <button type="button" title="Kembalikan" aria-label={`Kembalikan ${item.kode_inventory}`} className={iconBtn} onClick={() => openReturn(induk)}>
-              <Undo2 size={14} />
-            </button>
-          )}
-          {utama && induk.bisa_dikembalikan && (
-            <button type="button" title="Cetak struk" aria-label={`Cetak struk ${item.kode_inventory}`} className={iconBtn} disabled={printing === induk.id} onClick={() => printStruk(induk)}>
-              {printing === induk.id ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-            </button>
-          )}
-        </span>
-      ),
-    },
-  ];
-
   return (
     <div className="min-w-0 space-y-4">
-      {/* ===== judul + pilihan tampilan ===== */}
+      {/* ===== judul ===== */}
       <div className="flex flex-wrap items-end justify-between gap-3 px-1">
         <div className="min-w-0">
           <h1 className="text-xl font-bold">Inventory saya</h1>
           <p className="mt-0.5 truncate text-xs text-ink-muted">Halo, {user?.name}</p>
         </div>
-        {items && items.length > 0 && <SegmentedTabs tabs={VIEWS} value={view} onChange={setView} />}
       </div>
 
       {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
@@ -302,9 +246,9 @@ export default function UserDashboardPage() {
               </section>
 
               {/* ===== tampilan kartu ===== */}
-              {view === 'kartu' && (
+              <div className="space-y-3">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {items.map((item) => (
+                  {kartuRows.map((item) => (
                     <article key={item.id} className="flex min-w-0 flex-col rounded-xl border border-line bg-surface">
                       {/* kepala: nama, kode, status */}
                       <header className="flex items-start gap-3 p-4 pb-3">
@@ -409,49 +353,17 @@ export default function UserDashboardPage() {
                     </article>
                   ))}
                 </div>
-              )}
-
-              {/* ===== tampilan tabel ===== */}
-              {view === 'tabel' && (
-                <div className="min-w-0 space-y-3">
-                  <SearchField
-                    value={query}
-                    onChange={(v) => {
-                      setQuery(v);
-                      setPage(1);
-                    }}
-                    placeholder="Cari kode, nama, merk, serial number..."
-                  />
-                  <p className="text-[11px] text-ink-muted">
-                    Total: <span className="font-semibold text-ink">{filtered.length.toLocaleString('id-ID')}</span> unit
-                  </p>
-                  <DataTable
-                    columns={columns}
-                    data={rows}
-                    rowKey={({ item }) => item.id}
-                    minWidth={1100}
-                    emptyText="Tidak ada barang yang cocok."
-                    pagination={{
-                      page: currentPage,
-                      pageCount,
-                      onPageChange: setPage,
-                      perPage,
-                      onPerPageChange: (n) => {
-                        setPerPage(n);
-                        setPage(1);
-                      },
-                      perPageOptions: [5, 10, 25, 50],
-                    }}
-                  />
+                <div className="flex justify-end">
+                  <Pagination page={kartuCurrent} pageCount={kartuCount} onPageChange={setKartuPage} />
                 </div>
-              )}
+              </div>
 
               {/* ===== laporan kerusakan berjalan (hanya muncul kalau ada) ===== */}
               {laporan.length > 0 && (
                 <section className="rounded-xl border border-line bg-surface">
                   <h2 className="px-4 pb-2 pt-3.5 text-sm font-semibold">Laporan kerusakan</h2>
                   <ul className="divide-y divide-line/60 border-t border-line">
-                    {laporan.map((l) => {
+                    {laporanRows.map((l) => {
                       const sejakLapor = l.lapor_at ? `${formatLama(l.lapor_at, now)} lalu` : lamaLalu(l.tanggal_lapor, null, now);
                       return (
                         <li key={l.id} className="space-y-2.5 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-x-6 sm:space-y-0">
@@ -485,6 +397,11 @@ export default function UserDashboardPage() {
                       );
                     })}
                   </ul>
+                  {laporanCount > 1 && (
+                    <div className="flex justify-end border-t border-line px-4 py-3">
+                      <Pagination page={laporanCurrent} pageCount={laporanCount} onPageChange={setLaporanPage} />
+                    </div>
+                  )}
                 </section>
               )}
             </>
@@ -495,7 +412,7 @@ export default function UserDashboardPage() {
         <aside className="min-w-0 space-y-4">
           <NotificationPanel />
 
-          {/* ===== riwayat perbaikan barang user (2 per halaman, sisanya lewat paginasi) ===== */}
+          {/* ===== riwayat perbaikan barang user (3 per halaman, sisanya lewat paginasi) ===== */}
           <section className="rounded-xl border border-line bg-surface p-4">
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold">Riwayat perbaikan barang mu</h2>
