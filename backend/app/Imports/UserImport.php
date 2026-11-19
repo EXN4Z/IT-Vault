@@ -210,6 +210,11 @@ class UserImport implements ToCollection, WithCalculatedFormulas
         ], fn ($v) => $v !== null); // kolom kosong = tidak mengubah data yang sudah ada
 
         if ($user) {
+            // import tidak boleh menonaktifkan karyawan yang masih memegang inventory (sama seperti form Ubah)
+            if ($status === 'nonaktif' && $user->status !== 'nonaktif' && ($error = $user->nonaktifError())) {
+                throw new \RuntimeException($error);
+            }
+
             if ($password !== null) {
                 $atribut['password'] = $password; // di-hash oleh cast 'hashed' di model
             }

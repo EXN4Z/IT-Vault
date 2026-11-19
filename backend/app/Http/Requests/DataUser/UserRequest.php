@@ -32,7 +32,12 @@ class UserRequest extends FormRequest
             'cabang_id' => ['nullable', 'integer', 'exists:cabang,id'],
             'departemen_id' => ['nullable', 'integer', 'exists:departemen,id'],
             'perusahaan_id' => ['nullable', 'integer', 'exists:perusahaan,id'],
-            'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
+            'status' => ['required', Rule::in(['aktif', 'nonaktif']), function (string $attribute, mixed $value, \Closure $fail) use ($current) {
+                // hanya saat berpindah dari aktif ke nonaktif; user yang sudah nonaktif tetap bisa diedit datanya
+                if ($value === 'nonaktif' && $current && $current->status !== 'nonaktif' && ($error = $current->nonaktifError())) {
+                    $fail($error);
+                }
+            }],
         ];
     }
 

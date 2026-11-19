@@ -88,4 +88,22 @@ class User extends Authenticatable
 
         return $query->whereHas('role', fn ($r) => $r->whereRaw('LOWER(nama) = ?', [$role]));
     }
+
+    // aturan nonaktifkan: karyawan yang masih memegang inventory harus mengembalikannya dulu
+    // (cukup barang utama yang disebut: kelengkapan ikut barang utamanya)
+    // return pesan error, atau null kalau boleh
+    public function nonaktifError(): ?string
+    {
+        $dipegang = Inventory::where('pemakai_saat_ini_id', $this->id)->orderBy('kode_inventory');
+
+        if (! $dipegang->exists()) {
+            return null;
+        }
+
+        $kode = (clone $dipegang)->whereNull('parent_id')->pluck('kode_inventory');
+
+        return $kode->isEmpty()
+            ? 'Kembalikan inventory terlebih dahulu.'
+            : "Kembalikan inventory terlebih dahulu: {$kode->implode(', ')}.";
+    }
 }
