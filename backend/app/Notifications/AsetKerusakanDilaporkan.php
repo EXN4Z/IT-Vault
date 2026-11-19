@@ -2,12 +2,13 @@
 
 namespace App\Notifications;
 
-use App\Models\Transaksi\InventoryPenanganan;
+use App\Models\Penanganan;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
+use Illuminate\Support\Facades\Log;
 
 class AsetKerusakanDilaporkan extends Notification
 {
@@ -18,7 +19,7 @@ class AsetKerusakanDilaporkan extends Notification
     // laporan kerusakan bisa juga dikirim pas item lagi nganggur/gak ada
     // pemakai aktif (audit gudang, atau admin lapor langsung), jadi
     // pemakai?->user?->name bisa null padahal pelapornya jelas ada.
-    public function __construct(protected InventoryPenanganan $penanganan, protected string $pelaporName)
+    public function __construct(protected Penanganan $penanganan, protected string $pelaporName)
     {
     }
 
@@ -28,6 +29,11 @@ class AsetKerusakanDilaporkan extends Notification
         // baris di daftar notif, tapi TIDAK dapet alert real-time buat
         // laporannya sendiri -- cuma 'database', broadcast & web push
         // di-skip khusus buat dia.
+        Log::info('AsetKerusakanDilaporkan via', [
+            'penerima' => $notifiable->id,
+            'pelapor' => $this->penanganan->dilaporkan_oleh_user_id,
+            'jumlah_subscription' => $notifiable->pushSubscriptions()->count(),
+        ]);
         if ($notifiable->id === $this->penanganan->dilaporkan_oleh_user_id) {
             return ['database'];
         }
@@ -71,7 +77,7 @@ class AsetKerusakanDilaporkan extends Notification
             'pelapor' => $this->pelaporName,
             'jenis_kerusakan' => $this->penanganan->jenis_kerusakan,
             'message' => "{$this->namaPelapor()} melaporkan kerusakan {$this->penanganan->jenis_kerusakan} pada {$this->namaAset()}.",
-            'url' => '/penanganan-inventory',
+            'url' => '/penanganan',
         ];
     }
 
@@ -86,7 +92,7 @@ class AsetKerusakanDilaporkan extends Notification
             ->title('Laporan Kerusakan Inventory')
             ->icon('/logo.png')
             ->body("{$this->namaPelapor()} melaporkan kerusakan {$this->penanganan->jenis_kerusakan} pada {$this->namaAset()}.")
-            ->data(['url' => '/penanganan-inventory'])
+            ->data(['url' => '/penanganan'])
             ->options(['TTL' => 300]);
     }
 }

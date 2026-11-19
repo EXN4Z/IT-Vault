@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Moon, PanelLeft, Search, Sun } from 'lucide-react';
+import { Moon, PanelLeft, Search, Sun } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getBreadcrumb, navItems } from './navigation';
+import NotificationDropdown from './NotificationDropdown';
 
 // class tombol ikon bulat-kotak di top bar (toggle sidebar, ganti tema)
 const iconButtonClass =
@@ -44,9 +45,6 @@ export default function Topbar({ onTogglePanel }: TopbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchBoxRef = useRef<HTMLDivElement>(null);
 
-  // ===== state dropdown notifikasi =====
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
 
   // cocokkan label menu (tidak peduli huruf besar/kecil); hasil hanya muncul kalau query tidak kosong
   const q = query.trim().toLowerCase();
@@ -58,9 +56,6 @@ export default function Topbar({ onTogglePanel }: TopbarProps) {
       const target = e.target as Node;
       if (searchBoxRef.current && !searchBoxRef.current.contains(target)) {
         setSearchOpen(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(target)) {
-        setNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -167,25 +162,7 @@ export default function Topbar({ onTogglePanel }: TopbarProps) {
         </button>
 
         {/* notifikasi */}
-        <div ref={notifRef} className="relative">
-          <button
-            type="button"
-            aria-label="Notifikasi"
-            onClick={() => setNotifOpen((v) => !v)}
-            className={`${iconButtonClass} ${notifOpen ? 'bg-hover' : ''}`}
-          >
-            <Bell size={17} />
-          </button>
-
-          {notifOpen && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-line bg-surface shadow-lg animate-fade-in">
-              <div className="border-b border-line px-4 py-2.5 text-sm font-semibold text-ink">
-                Notifikasi
-              </div>
-              <p className="px-4 py-8 text-center text-sm text-ink-muted">Belum ada notifikasi masuk.</p>
-            </div>
-          )}
-        </div>
+        <NotificationDropdown />
 
         {/* info user */}
         <div className="flex items-center gap-2.5 pl-1.5">

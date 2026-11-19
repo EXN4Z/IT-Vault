@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
+use App\Notifications\AsetKerusakanDilaporkan;
+use App\Notifications\AsetKerusakanSelesai;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\AsetPenangananSelesai;
 
 class PenangananController extends Controller
 {
@@ -114,6 +119,8 @@ class PenangananController extends Controller
             throw $e;
         }
 
+        $this->kirimNotifikasiKerusakan($penanganan, $user);
+
         return response()->json($this->payload($penanganan->load(['pelapor:id,name', 'penerima:id,name'])), 201);
     }
 
@@ -206,6 +213,8 @@ class PenangananController extends Controller
 
             return $locked;
         });
+
+        $this->kirimNotifikasiSelesai($selesai, $request->user());
 
         return response()->json($this->payload($selesai->load(['inventory:id,kode_inventory,nama,merk,type,serial_number,warna', 'pelapor:id,name', 'penerima:id,name'])));
     }
@@ -302,5 +311,44 @@ class PenangananController extends Controller
             'pelapor' => $p->pelapor?->name,
             'penerima' => $p->penerima?->name,
         ];
+    }
+
+    private function kirimNotifikasiKerusakan(Penanganan $penanganan, User $pelapor): void
+    {
+        try {
+            $penerima = User::query()
+                ->whereHas('role', fn ($q) => $q->whereIn('nama', ['manajer', 'hr', 'admin']))
+                ->get();
+
+            Notification::send(
+                $penerima,
+                new AsetKerusakanDilaporkan($penanganan->loadMissing('inventory'), $pelapor->name)
+            );
+        } catch (Throwable $e) {
+            Log::error('Gagal mengirim notifikasi kerusakan', [
+                'penanganan_id' => $penanganan->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function kirimNotifikasiSelesai(Penanganan $penanganan, User $penyelesai): void
+    {
+        try {
+            $pelapor = User::find($penanganan->dilaporkan_oleh_user_id);
+
+            if (! $pelapor) {
+                return;
+            }
+
+            $pelapor->notify(
+                new AsetKerusakanSelesai($penanganan->loadMissing('inventory'), $penyelesai->id)
+            );
+        } catch (Throwable $e) {
+            Log::error('Gagal mengirim notifikasi penanganan selesai', [
+                'penanganan_id' => $penanganan->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

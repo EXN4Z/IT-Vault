@@ -12,6 +12,8 @@ use App\Http\Controllers\Perusahaan\PerusahaanController;
 use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\DataUser\UserController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Notif\PushSubscriptionController;
+use App\Http\Controllers\Notif\NotificationController;
 
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:5,1');
@@ -53,6 +55,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/inventory/{inventory}/serahkan', [PeminjamanController::class, 'store']);
     Route::get('/inventory/{inventory}/struk', [PeminjamanController::class, 'struk']);
 
+    // notification
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+
     // pengembalian, struk pengembalian, dan riwayat peminjaman
     Route::post('/inventory/{inventory}/kembalikan', [PeminjamanController::class, 'kembalikan']);
     Route::get('/inventory/{inventory}/riwayat', [PeminjamanController::class, 'riwayat']);
@@ -87,4 +94,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CRUD cabang: index, store, update, destroy
     Route::apiResource('cabang', CabangController::class)->except('show');
+
+    //Webpush
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store']);
+    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy']);
 });

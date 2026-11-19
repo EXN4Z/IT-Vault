@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\Transaksi\InventoryPenanganan;
+use App\Models\Penanganan as InventoryPenanganan;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
@@ -54,7 +54,7 @@ class AsetKerusakanSelesai extends Notification
             'jenis_kerusakan' => $this->penanganan->jenis_kerusakan,
             'hasil' => $this->penanganan->hasil,
             'message' => $this->pesan(),
-            'url' => '/penanganan-inventory',
+            'url' => '/master-data?tab=inventory',
         ];
     }
 
@@ -69,7 +69,7 @@ class AsetKerusakanSelesai extends Notification
             ->title($this->penanganan->hasil === 'rusak_berat' ? 'Inventory Dinyatakan Rusak Berat' : 'Inventory Sudah Bisa Digunakan')
             ->icon('/logo.png')
             ->body($this->pesan())
-            ->data(['url' => '/penanganan-inventory'])
+            ->data(['url' => '/master-data?tab=inventory'])
             ->options(['TTL' => 300]);
     }
 }
