@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Bell, BellRing, LogOut, Moon, Sun, Vault } from 'lucide-react';
+import { LogOut, Moon, Sun, Vault } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { disablePush, enablePush, getPushSubscription, isPushSupported } from '../../lib/push';
-import NotificationDropdown from './NotificationDropdown';
 
 // class tombol ikon di header (sama dengan top bar admin)
 const iconButtonClass =
@@ -12,45 +9,11 @@ const iconButtonClass =
 
 // =============================================================================
 // USER LAYOUT: kerangka halaman untuk role user (tanpa sidebar, karena hanya ada dashboard)
+// Toggle notifikasi push dan daftar notifikasi sekarang ada di halaman dashboard (NotificationPanel)
 // =============================================================================
 export default function UserLayout() {
   const { user, logout } = useAuth();
   const { isDark, setTheme } = useTheme();
-
-  // ===== notifikasi push (sama seperti toggle di sidebar admin) =====
-  const pushSupported = isPushSupported();
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
-
-  useEffect(() => {
-    if (!pushSupported) return;
-    getPushSubscription().then((sub) => {
-      setIsSubscribed(!!sub && Notification.permission === 'granted');
-    });
-  }, [pushSupported]);
-
-  const handleTogglePush = async () => {
-    if (pushBusy) return;
-    setPushBusy(true);
-    try {
-      if (isSubscribed) {
-        await disablePush();
-        setIsSubscribed(false);
-      } else {
-        const result = await enablePush();
-        if (result === 'ok') {
-          setIsSubscribed(true);
-        } else if (result === 'denied') {
-          alert('Izin notifikasi ditolak. Aktifkan lewat pengaturan situs di browser.');
-        }
-      }
-    } catch (err) {
-      console.error('Gagal mengubah status notifikasi', err);
-      alert('Gagal mengubah status notifikasi. Coba lagi.');
-    } finally {
-      setPushBusy(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-canvas text-ink">
@@ -78,21 +41,6 @@ export default function UserLayout() {
             {isDark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
 
-          {/* toggle notifikasi push */}
-          <button
-            type="button"
-            title={!pushSupported ? 'Browser ini tidak mendukung notifikasi' : isSubscribed ? 'Matikan notifikasi' : 'Aktifkan notifikasi'}
-            aria-label="Notifikasi push"
-            aria-pressed={isSubscribed}
-            disabled={pushBusy || !pushSupported}
-            onClick={handleTogglePush}
-            className={`${iconButtonClass} ${isSubscribed ? 'bg-selected text-ink' : ''}`}
-          >
-            {isSubscribed ? <BellRing size={17} /> : <Bell size={17} />}
-          </button>
-
-          <NotificationDropdown />
-
           <span className="hidden pl-1.5 text-sm font-semibold sm:block">{user?.name}</span>
 
           <button
@@ -109,7 +57,7 @@ export default function UserLayout() {
 
       {/* ===== isi halaman ===== */}
       <main className="flex-1 overflow-y-auto bg-page [scrollbar-width:thin] [scrollbar-color:var(--color-line)_transparent]">
-        <div className="mx-auto w-full max-w-4xl p-4">
+        <div className="mx-auto w-full max-w-6xl p-4">
           <Outlet />
         </div>
       </main>
