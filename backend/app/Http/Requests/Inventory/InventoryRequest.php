@@ -51,6 +51,9 @@ class InventoryRequest extends FormRequest
             'keterangan' => ['nullable', 'string'],
             'no_surat_jalan' => ['nullable', 'string', 'max:255'],
             'no_good_receive' => ['nullable', 'string', 'max:255'],
+            // foto inventory (opsional); hapus_foto = buang foto yang sudah ada
+            'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'hapus_foto' => ['nullable', 'boolean'],
         ];
     }
 
@@ -74,6 +77,10 @@ class InventoryRequest extends FormRequest
             'type.max' => 'Type maksimal 100 karakter.',
             'perusahaan_id.exists' => 'Perusahaan tidak ditemukan.',
             'supplier_id.exists' => 'Supplier tidak ditemukan.',
+            'foto.image' => 'File foto harus berupa gambar (jpg, jpeg, png, atau webp).',
+            'foto.mimes' => 'File foto harus berupa gambar (jpg, jpeg, png, atau webp).',
+            'foto.max' => 'Ukuran foto maksimal 5 MB.',
+            'foto.uploaded' => 'Foto gagal diunggah. Cek ukuran foto (maksimal 5 MB) lalu coba lagi.',
         ];
     }
 }

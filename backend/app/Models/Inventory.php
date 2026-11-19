@@ -2,14 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Inventory extends Model
 {
     // status yang dikenal; dipakai validasi dan filter tab
     public const STATUSES = ['tersedia', 'dipakai', 'menunggu_perbaikan', 'diperbaiki', 'rusak_berat', 'dijual'];
+
+    // foto_url ikut ke JSON supaya frontend tidak perlu menyusun URL storage sendiri
+    protected $appends = ['foto_url'];
 
     // nama tabel singular, jadi harus ditulis eksplisit (default Laravel: "inventories")
     protected $table = 'inventory';
@@ -95,6 +100,12 @@ class Inventory extends Model
                 }
             }
         });
+    }
+
+    // URL publik foto inventory (null kalau belum ada foto)
+    protected function fotoUrl(): Attribute
+    {
+        return Attribute::get(fn () => $this->foto ? Storage::disk('public')->url($this->foto) : null);
     }
 
     public function kategori(): BelongsTo
@@ -238,6 +249,26 @@ class Inventory extends Model
 
         if (Penanganan::where('inventory_id', $this->id)->exists()) {
             return 'Inventory ini punya riwayat penanganan kerusakan, jadi tidak bisa dihapus.';
+        }
+
+        return null;
+    }
+
+    // aturan lapor kerusakan: hanya inventory berstatus Tersedia atau Dipakai
+    // (rusak berat sudah final, menunggu perbaikan / diperbaiki sudah punya penanganan, dijual terkunci)
+    // return pesan error, atau null kalau boleh
+    public function laporError(): ?string
+    {
+        if ($this->status === 'dijual') {
+            return 'Inventory yang sudah dijual tidak bisa dilaporkan.';
+        }
+
+        if ($this->status === 'rusak_berat') {
+            return 'Inventory ini sudah berstatus Rusak Berat, jadi tidak bisa dilaporkan lagi.';
+        }
+
+        if (! in_array($this->status, ['tersedia', 'dipakai'], true)) {
+            return 'Hanya inventory berstatus Tersedia atau Dipakai yang bisa dilaporkan.';
         }
 
         return null;

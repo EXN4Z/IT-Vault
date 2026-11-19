@@ -235,7 +235,7 @@ class PenangananController extends Controller
     }
 
     // aturan lapor: admin boleh semua barang, peminjam hanya barang yang sedang ia pinjam;
-    // barang yang sudah dijual atau masih punya penanganan terbuka tidak bisa dilaporkan
+    // hanya barang berstatus Tersedia / Dipakai (lihat Inventory::laporError) yang belum punya penanganan terbuka
     private function ensureBisaDilapor(Inventory $inventory, User $user): void
     {
         if (! $this->isAdmin($user) && $inventory->pemakai_saat_ini_id !== $user->id) {
@@ -244,10 +244,8 @@ class PenangananController extends Controller
             ]);
         }
 
-        if ($inventory->status === 'dijual') {
-            throw ValidationException::withMessages([
-                'inventory' => 'Inventory yang sudah dijual tidak bisa dilaporkan.',
-            ]);
+        if ($error = $inventory->laporError()) {
+            throw ValidationException::withMessages(['inventory' => $error]);
         }
 
         if (Penanganan::terbuka()->where('inventory_id', $inventory->id)->exists()) {

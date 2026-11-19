@@ -29,6 +29,7 @@ export interface InventoryRow {
   perusahaan_id: number | null;
   keterangan: string | null;
   foto: string | null;
+  foto_url: string | null; // URL foto dari server, null = belum ada foto
   supplier_id: number | null;
   no_surat_jalan: string | null;
   no_good_receive: string | null;

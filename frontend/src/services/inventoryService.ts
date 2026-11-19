@@ -12,6 +12,21 @@ export interface InventoryImportResult {
   errors: string[];
 }
 
+// perubahan foto dari form: file baru (ganti / tambah) atau hapus foto lama
+export interface InventoryFotoInput {
+  file: File | null;
+  hapus: boolean;
+}
+
+// form tambah / ubah dikirim multipart karena bisa membawa foto; null dikirim sebagai '' (server mengubahnya jadi null lagi)
+function toFormData(payload: InventoryPayload, foto: InventoryFotoInput): FormData {
+  const form = new FormData();
+  Object.entries(payload).forEach(([key, value]) => form.append(key, value === null ? '' : String(value)));
+  if (foto.file) form.append('foto', foto.file);
+  else if (foto.hapus) form.append('hapus_foto', '1');
+  return form;
+}
+
 export const inventoryService = {
   // GET /inventory?status=tersedia&search=...&sort_by=kode_inventory&sort_dir=asc
   async list(
@@ -68,14 +83,16 @@ export const inventoryService = {
   },
 
   // POST /inventory
-  async create(payload: InventoryPayload): Promise<InventoryRow> {
-    const { data } = await api.post<InventoryRow>('/inventory', payload);
+  async create(payload: InventoryPayload, foto: InventoryFotoInput): Promise<InventoryRow> {
+    const { data } = await api.post<InventoryRow>('/inventory', toFormData(payload, foto));
     return data;
   },
 
-  // PUT /inventory/{id}
-  async update(id: number, payload: InventoryPayload): Promise<InventoryRow> {
-    const { data } = await api.put<InventoryRow>(`/inventory/${id}`, payload);
+  // PUT /inventory/{id} (multipart tidak terbaca di PUT, jadi dikirim POST dengan _method=PUT)
+  async update(id: number, payload: InventoryPayload, foto: InventoryFotoInput): Promise<InventoryRow> {
+    const form = toFormData(payload, foto);
+    form.append('_method', 'PUT');
+    const { data } = await api.post<InventoryRow>(`/inventory/${id}`, form);
     return data;
   },
 
