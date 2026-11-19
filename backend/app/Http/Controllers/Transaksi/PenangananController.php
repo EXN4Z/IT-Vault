@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
-use App\Notifications\AsetKerusakanDilaporkan;
-use App\Notifications\AsetKerusakanSelesai;
+use App\Notifications\InventoryKerusakanDilaporkan;
+use App\Notifications\InventoryKerusakanSelesai;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\AsetPenangananSelesai;
@@ -323,7 +323,7 @@ class PenangananController extends Controller
 
             Notification::send(
                 $penerima,
-                new AsetKerusakanDilaporkan($penanganan->loadMissing('inventory'), $pelapor->name)
+                new InventoryKerusakanDilaporkan($penanganan->loadMissing('inventory'), $pelapor->name)
             );
         } catch (Throwable $e) {
             Log::error('Gagal mengirim notifikasi kerusakan', [
@@ -343,7 +343,7 @@ class PenangananController extends Controller
             }
 
             $pelapor->notify(
-                new AsetKerusakanSelesai($penanganan->loadMissing('inventory'), $penyelesai->id)
+                new InventoryKerusakanSelesai($penanganan->loadMissing('inventory'), $penyelesai->id)
             );
         } catch (Throwable $e) {
             Log::error('Gagal mengirim notifikasi penanganan selesai', [

@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 
-class AsetKerusakanSelesai extends Notification
+class InventoryKerusakanSelesai extends Notification
 {
     use Queueable;
 

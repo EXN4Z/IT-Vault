@@ -10,7 +10,7 @@ use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
 use Illuminate\Support\Facades\Log;
 
-class AsetKerusakanDilaporkan extends Notification
+class InventoryKerusakanDilaporkan extends Notification
 {
     use Queueable;
 
@@ -29,11 +29,6 @@ class AsetKerusakanDilaporkan extends Notification
         // baris di daftar notif, tapi TIDAK dapet alert real-time buat
         // laporannya sendiri -- cuma 'database', broadcast & web push
         // di-skip khusus buat dia.
-        Log::info('AsetKerusakanDilaporkan via', [
-            'penerima' => $notifiable->id,
-            'pelapor' => $this->penanganan->dilaporkan_oleh_user_id,
-            'jumlah_subscription' => $notifiable->pushSubscriptions()->count(),
-        ]);
         if ($notifiable->id === $this->penanganan->dilaporkan_oleh_user_id) {
             return ['database'];
         }
