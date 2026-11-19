@@ -83,7 +83,7 @@ export default function InventoryLinkModal({ open, inventory, onClose, onDone }:
     <Modal
       open={open}
       onClose={() => { if (!saving) onClose(); }}
-      title={isUnlink ? 'Lepas link' : 'Link ke barang utama'}
+      title={isUnlink ? 'Hapus sebagai kelengkapan' : 'Jadikan kelengkapan barang utama'}
       description={!isUnlink && inventory ? `Pilih barang utama untuk ${nameLabel}.` : undefined}
       size={isUnlink ? 'sm' : 'md'}
       footer={
