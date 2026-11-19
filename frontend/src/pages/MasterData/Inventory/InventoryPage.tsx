@@ -427,8 +427,27 @@ export default function InventoryPage() {
             ><Tag size={14} /></button>
           )}
           <button type="button" aria-label="Detail" title="Detail" className={iconBtn} onClick={() => openDetail(i)}><Eye size={14} /></button>
-          <button type="button" aria-label="Ubah" title={i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci' : 'Ubah'} className={iconBtn} disabled={i.status === 'dijual'} onClick={() => openEdit(i)}><Pencil size={14} /></button>
-          <button type="button" aria-label="Hapus" title={i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci' : 'Hapus'} className={`${iconBtn} hover:text-danger`} disabled={i.status === 'dijual'} onClick={() => openDelete(i)}><Trash2 size={14} /></button>
+          <button
+            type="button"
+            aria-label="Ubah"
+            title={i.status === 'tersedia' ? 'Ubah' : 'Hanya inventory berstatus Tersedia yang bisa diubah'}
+            className={iconBtn}
+            disabled={i.status !== 'tersedia'}
+            onClick={() => openEdit(i)}
+          ><Pencil size={14} /></button>
+          <button
+            type="button"
+            aria-label="Hapus"
+            title={
+              i.status !== 'tersedia' ? 'Hanya inventory berstatus Tersedia yang bisa dihapus'
+                : i.parent_id !== null ? 'Masih jadi kelengkapan, lepas link dulu sebelum dihapus'
+                : (i.children_count ?? 0) > 0 ? 'Masih ada kelengkapan yang terpasang, lepas link semuanya dulu sebelum dihapus'
+                : 'Hapus'
+            }
+            className={`${iconBtn} hover:text-danger`}
+            disabled={i.status !== 'tersedia' || i.parent_id !== null || (i.children_count ?? 0) > 0}
+            onClick={() => openDelete(i)}
+          ><Trash2 size={14} /></button>
         </span>
       ),
     },

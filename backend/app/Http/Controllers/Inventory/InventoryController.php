@@ -223,7 +223,10 @@ class InventoryController extends Controller
     // PUT /inventory/{inventory}
     public function update(InventoryRequest $request, Inventory $inventory): JsonResponse
     {
-        $this->ensureTidakTerkunci($inventory);
+        // hanya status Tersedia yang boleh diubah
+        if ($error = $inventory->editError()) {
+            throw ValidationException::withMessages(['inventory' => $error]);
+        }
 
         $inventory->update($request->validated());
 
@@ -233,13 +236,9 @@ class InventoryController extends Controller
     // DELETE /inventory/{inventory}
     public function destroy(Inventory $inventory): Response
     {
-        $this->ensureTidakTerkunci($inventory);
-
-        // barang yang sedang dipakai (juga kelengkapannya) harus dikembalikan dulu
-        if ($inventory->status === 'dipakai') {
-            throw ValidationException::withMessages([
-                'inventory' => 'Inventory yang sedang dipakai tidak bisa dihapus. Kembalikan dulu.',
-            ]);
+        // hanya status Tersedia dan tanpa link (barang utama / kelengkapan) yang boleh dihapus
+        if ($error = $inventory->hapusError()) {
+            throw ValidationException::withMessages(['inventory' => $error]);
         }
 
         $inventory->delete();

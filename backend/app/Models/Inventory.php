@@ -188,6 +188,61 @@ class Inventory extends Model
             : null;
     }
 
+    // aturan ubah: hanya inventory berstatus Tersedia (yang sedang dipakai / rusak / diperbaiki / dijual terkunci)
+    // punya link (barang utama atau kelengkapan) tetap boleh diubah
+    // return pesan error, atau null kalau boleh
+    public function editError(): ?string
+    {
+        if ($this->status === 'dijual') {
+            return 'Inventory yang sudah dijual tidak bisa diubah lagi.';
+        }
+
+        if ($this->status !== 'tersedia') {
+            return 'Hanya inventory berstatus Tersedia yang bisa diubah.';
+        }
+
+        return null;
+    }
+
+    // aturan hapus: hanya yang Tersedia, tidak punya link sama sekali, dan belum punya riwayat
+    // (barang utama yang punya kelengkapan, atau kelengkapan yang punya barang utama, harus dilepas dulu;
+    // yang pernah dipinjam / ditangani tidak boleh dihapus supaya riwayatnya tidak hilang)
+    // return pesan error, atau null kalau boleh
+    public function hapusError(): ?string
+    {
+        if ($this->status === 'dijual') {
+            return 'Inventory yang sudah dijual tidak bisa dihapus.';
+        }
+
+        if ($this->status !== 'tersedia') {
+            return 'Hanya inventory berstatus Tersedia yang bisa dihapus.';
+        }
+
+        if ($this->parent_id !== null) {
+            $induk = $this->parent?->kode_inventory ?? 'barang utama';
+
+            return "Inventory ini masih jadi kelengkapan dari {$induk}. Lepas link dulu sebelum dihapus.";
+        }
+
+        $kelengkapan = $this->children()->orderBy('kode_inventory')->pluck('kode_inventory');
+
+        if ($kelengkapan->isNotEmpty()) {
+            return "Masih ada {$kelengkapan->count()} kelengkapan yang terpasang ({$kelengkapan->implode(', ')}). Lepas link semuanya dulu sebelum dihapus.";
+        }
+
+        // riwayat tidak boleh hilang: pemakai & peminjaman_item di-cascade saat inventory dihapus,
+        // dan inventory_penanganan memakai restrict (kalau dipaksa hapus, jadi error 500 dari database)
+        if ($this->pemakai()->exists() || $this->peminjamanItems()->exists()) {
+            return 'Inventory ini punya riwayat peminjaman, jadi tidak bisa dihapus supaya riwayatnya tidak hilang.';
+        }
+
+        if (Penanganan::where('inventory_id', $this->id)->exists()) {
+            return 'Inventory ini punya riwayat penanganan kerusakan, jadi tidak bisa dihapus.';
+        }
+
+        return null;
+    }
+
     // aturan jual: hanya yang Rusak Berat, dan tidak boleh ada kelengkapan yang masih nempel
     // (kelengkapan harus dilepas dulu; barang yang sendirinya masih jadi kelengkapan juga harus dilepas dulu)
     // return pesan error, atau null kalau boleh
