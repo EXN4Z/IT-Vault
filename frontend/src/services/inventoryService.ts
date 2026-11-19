@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import type { InventoryKelengkapan, InventoryLinkCandidate, InventoryOptions, InventoryPayload, InventoryRow } from '../types/inventory';
+import type { InventoryKelengkapan, InventoryLinkCandidate, InventoryOptions, InventoryRow } from '../types/inventory';
 import type { Paginated } from '../types/user';
 import type { ExportOptions } from '../components/modal/ExportModal';
 
@@ -67,15 +67,16 @@ export const inventoryService = {
     return data;
   },
 
-  // POST /inventory
-  async create(payload: InventoryPayload): Promise<InventoryRow> {
+  // POST /inventory (multipart, karena bisa membawa foto)
+  async create(payload: FormData): Promise<InventoryRow> {
     const { data } = await api.post<InventoryRow>('/inventory', payload);
     return data;
   },
 
-  // PUT /inventory/{id}
-  async update(id: number, payload: InventoryPayload): Promise<InventoryRow> {
-    const { data } = await api.put<InventoryRow>(`/inventory/${id}`, payload);
+  // POST /inventory/{id} + _method=PUT (Laravel tidak membaca multipart lewat PUT)
+  async update(id: number, payload: FormData): Promise<InventoryRow> {
+    payload.append('_method', 'PUT');
+    const { data } = await api.post<InventoryRow>(`/inventory/${id}`, payload);
     return data;
   },
 

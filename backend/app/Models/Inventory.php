@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Inventory extends Model
 {
@@ -13,6 +14,7 @@ class Inventory extends Model
 
     // nama tabel singular, jadi harus ditulis eksplisit (default Laravel: "inventories")
     protected $table = 'inventory';
+    protected $appends = ['foto_url'];
 
     // kode_inventory sengaja tidak masuk: dibuat otomatis oleh trigger database (IT-YY-00000)
     protected $fillable = [
@@ -95,6 +97,18 @@ class Inventory extends Model
                 }
             }
         });
+    }
+
+    public function getFotoUrlAttribute(): ?string
+    {
+        if (! $this->foto) {
+            return null;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
+        return $disk->url($this->foto);
     }
 
     public function kategori(): BelongsTo

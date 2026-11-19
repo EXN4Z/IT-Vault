@@ -173,8 +173,9 @@ class PenangananController extends Controller
     {
         // hanya admin: dibatasi lewat middleware role:admin di routes/api.php
         $data = $request->validated();
+        $fotoPemakaiDihapus = [];
 
-        $selesai = DB::transaction(function () use ($penanganan, $data) {
+        $selesai = DB::transaction(function () use ($penanganan, $data, &$fotoPemakaiDihapus) {
             // kunci laporannya lalu cek ulang, supaya dua admin yang menyelesaikan bersamaan tidak lolos
             $locked = Penanganan::lockForUpdate()->findOrFail($penanganan->id);
 
@@ -205,13 +206,43 @@ class PenangananController extends Controller
                 'no_struk' => $this->nomorStruk(),
             ]);
 
-            // hanya status yang berubah; pemakai_saat_ini_id dibiarkan (barang tetap dipegang peminjamnya)
+            if ($berhasil) {
+                // hanya status yang berubah; pemakai_saat_ini_id dibiarkan (barang tetap dipegang peminjamnya)
+                $inventory->update([
+                    'status' => $inventory->pemakai_saat_ini_id !== null ? 'dipakai' : 'tersedia',
+                ]);
+
+                return $locked;
+            }
+
+            // rusak berat: peminjaman yang masih berjalan dihapus dan barang tidak lagi dipegang siapa pun.
+            // Hanya untuk barang utama; pada kelengkapan, catatan peminjamannya milik barang utamanya.
+            if ($inventory->parent_id === null) {
+                Pemakai::aktif()->where('inventory_id', $inventory->id)->get()->each(
+                    function (Pemakai $pemakai) use (&$fotoPemakaiDihapus) {
+                        // lepas rujukan dari laporan penanganan dulu, supaya tidak ditolak foreign key
+                        Penanganan::where('pemakai_id', $pemakai->id)->update(['pemakai_id' => null]);
+
+                        if ($pemakai->foto) {
+                            $fotoPemakaiDihapus[] = $pemakai->foto;
+                        }
+                        $pemakai->delete();
+                    }
+                );
+            }
+
             $inventory->update([
-                'status' => $berhasil ? ($inventory->pemakai_saat_ini_id !== null ? 'dipakai' : 'tersedia') : 'rusak_berat',
+                'status' => 'rusak_berat',
+                'pemakai_saat_ini_id' => null,
             ]);
 
             return $locked;
         });
+
+        // file foto penerimaan dihapus setelah transaksi berhasil
+        foreach ($fotoPemakaiDihapus as $foto) {
+            Storage::disk('public')->delete($foto);
+        }
 
         $this->kirimNotifikasiSelesai($selesai, $request->user());
 

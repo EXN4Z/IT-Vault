@@ -51,6 +51,8 @@ class InventoryRequest extends FormRequest
             'keterangan' => ['nullable', 'string'],
             'no_surat_jalan' => ['nullable', 'string', 'max:255'],
             'no_good_receive' => ['nullable', 'string', 'max:255'],
+            'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'hapus_foto' => ['nullable', 'boolean'],
         ];
     }
 

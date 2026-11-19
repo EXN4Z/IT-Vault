@@ -18,6 +18,7 @@ use App\Imports\InventoryBuktiImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use App\Exports\InventoryExport;
+use Illuminate\Support\Facades\Storage;
 
 class InventoryController extends Controller
 {
@@ -228,11 +229,28 @@ class InventoryController extends Controller
             throw ValidationException::withMessages(['inventory' => $error]);
         }
 
-        $inventory->update($request->validated());
+        $data = $request->validated();
+        unset($data['foto'], $data['hapus_foto']); // file diurus manual di bawah
 
-        return response()->json($inventory->load(self::WITH));
+        $fotoLama = $inventory->foto;
+        $gantiFoto = $request->hasFile('foto');
+        $buangFoto = ! $gantiFoto && $request->boolean('hapus_foto');
+
+        if ($gantiFoto) {
+            $data['foto'] = $request->file('foto')->store('inventory', 'public');
+        } elseif ($buangFoto) {
+            $data['foto'] = null;
+        }
+
+        $inventory->update($data);
+
+        // file lama dihapus setelah update berhasil
+        if ($fotoLama && ($gantiFoto || $buangFoto)) {
+            Storage::disk('public')->delete($fotoLama);
+        }
+
+        return response()->json($inventory->refresh()->load(self::WITH));
     }
-
     // DELETE /inventory/{inventory}
     public function destroy(Inventory $inventory): Response
     {

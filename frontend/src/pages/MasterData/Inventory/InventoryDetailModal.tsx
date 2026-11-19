@@ -179,12 +179,27 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
           <div className="flex flex-col gap-5">
             {/* foto + info utama */}
             <div className="flex gap-4">
-              <div className="grid min-h-36 w-36 shrink-0 place-items-center self-stretch rounded-lg border border-line text-ink-muted">
-                <span className="flex flex-col items-center gap-2 text-xs font-medium">
-                  <ImageOff size={28} />
-                  Tanpa Foto
-                </span>
-              </div>
+              {inventory.foto_url ? (
+                <button
+                  type="button"
+                  onClick={() => setZoomUrl(inventory.foto_url)}
+                  title="Perbesar foto"
+                  className="w-36 shrink-0 cursor-zoom-in self-stretch overflow-hidden rounded-lg border border-line"
+                >
+                  <img
+                    src={inventory.foto_url}
+                    alt="Foto inventory"
+                    className="size-full min-h-36 object-cover transition hover:opacity-85"
+                  />
+                </button>
+              ) : (
+                <div className="grid min-h-36 w-36 shrink-0 place-items-center self-stretch rounded-lg border border-line text-ink-muted">
+                  <span className="flex flex-col items-center gap-2 text-xs font-medium">
+                    <ImageOff size={28} />
+                    Tanpa Foto
+                  </span>
+                </div>
+              )}
               <dl className="min-w-0 flex-1">
                 <InfoRow label="Merk & Tipe">{[inventory.merk, inventory.type].filter(Boolean).join(' · ') || '-'}</InfoRow>
                 <InfoRow label="Serial Number">{inventory.serial_number ?? '-'}</InfoRow>
