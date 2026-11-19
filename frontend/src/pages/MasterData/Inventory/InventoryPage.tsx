@@ -365,11 +365,12 @@ export default function InventoryPage() {
               aria-label="Link ke barang utama"
               title={
                 i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci'
-                  : (i.children_count ?? 0) > 0 ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain'
-                    : 'Link ke barang utama'
+                  : i.status === 'rusak_berat' ? 'Inventory rusak berat tidak bisa di-link ke barang utama'
+                    : (i.children_count ?? 0) > 0 ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain'
+                      : 'Link ke barang utama'
               }
               className={iconBtn}
-              disabled={i.status === 'dijual' || (i.children_count ?? 0) > 0}
+              disabled={i.status === 'dijual' || i.status === 'rusak_berat' || (i.children_count ?? 0) > 0}
               onClick={() => openLink(i)}
             ><Link2 size={14} /></button>
           )}

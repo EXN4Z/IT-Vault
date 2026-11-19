@@ -78,4 +78,5 @@ export interface InventoryLinkCandidate {
   merk: string | null;
   type: string | null;
   children_count: number;
+  status: InventoryRow['status'];
 }

@@ -112,24 +112,33 @@ export default function InventoryLinkModal({ open, inventory, onClose, onDone }:
             ) : items.length === 0 ? (
               <p className="px-3 py-8 text-center text-xs text-ink-muted">Tidak ada inventory yang bisa dijadikan barang utama.</p>
             ) : (
-              items.map((p) => {
+            items.map((p) => {
                 const selected = p.id === selectedId;
+                const rusakBerat = p.status === 'rusak_berat';
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    disabled={saving}
+                    disabled={saving || rusakBerat}
                     aria-pressed={selected}
+                    title={rusakBerat ? 'Inventory rusak berat tidak bisa dijadikan barang utama' : undefined}
                     onClick={() => setSelectedId(selected ? null : p.id)}
-                    className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'bg-hover' : ''}`}
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition ${
+                      rusakBerat || saving ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-hover'
+                    } ${saving ? 'opacity-60' : ''} ${selected ? 'bg-hover' : ''}`}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-semibold">
+                      <span className={`block truncate text-xs font-semibold ${rusakBerat ? 'opacity-60' : ''}`}>
                         {p.kode_inventory}{p.nama ? ` - ${p.nama}` : ''}
                       </span>
-                      <span className="block truncate text-[11px] text-ink-muted">
+                      <span className={`block truncate text-[11px] text-ink-muted ${rusakBerat ? 'opacity-60' : ''}`}>
                         {[p.merk, p.type].filter(Boolean).join(' ') || '-'}
                       </span>
+                      {rusakBerat && (
+                        <span className="block truncate text-[11px] font-medium text-danger">
+                          Rusak berat, tidak bisa dijadikan barang utama
+                        </span>
+                      )}
                     </span>
                     {p.children_count > 0 && (
                       <span className="shrink-0 text-[11px] text-ink-muted">{p.children_count} kelengkapan</span>
