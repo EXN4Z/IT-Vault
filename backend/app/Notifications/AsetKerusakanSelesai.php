@@ -35,9 +35,14 @@ class AsetKerusakanSelesai extends Notification
         return trim(($item->kode_inventory ?? '') . ' ' . ($item->nama ?? '')) ?: 'Inventory';
     }
 
+    protected function tidakBisaDiperbaiki(): bool
+    {
+        return $this->penanganan->hasil === 'tidak_bisa_diperbaiki';
+    }
+
     protected function pesan(): string
     {
-        return $this->penanganan->hasil === 'rusak_berat'
+        return $this->tidakBisaDiperbaiki()
             ? "Laporan kerusakan {$this->penanganan->jenis_kerusakan} pada {$this->namaAset()} yang Anda laporkan sudah diperiksa. Sayangnya inventory dinyatakan rusak berat dan tidak dapat diperbaiki."
             : "Laporan kerusakan {$this->penanganan->jenis_kerusakan} pada {$this->namaAset()} yang Anda laporkan sudah selesai diperbaiki dan bisa digunakan kembali.";
     }
@@ -66,10 +71,11 @@ class AsetKerusakanSelesai extends Notification
     public function toWebPush($notifiable, $notification): WebPushMessage
     {
         return (new WebPushMessage())
-            ->title($this->penanganan->hasil === 'rusak_berat' ? 'Inventory Dinyatakan Rusak Berat' : 'Inventory Sudah Bisa Digunakan')
+            ->title($this->tidakBisaDiperbaiki() ? 'Inventory Dinyatakan Rusak Berat' : 'Inventory Sudah Bisa Digunakan')
             ->icon('/logo.png')
             ->body($this->pesan())
             ->data(['url' => '/master-data?tab=inventory'])
             ->options(['TTL' => 300]);
     }
+
 }

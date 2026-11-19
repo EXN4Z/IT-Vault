@@ -275,6 +275,7 @@ class PenangananController extends Controller
     // bentuk data yang dikirim ke frontend (waktu *_at dalam ISO 8601, jamnya diformat di browser)
     private function payload(Penanganan $p): array
     {
+        $disk = Storage::disk('public');
         return [
             'id' => $p->id,
             'inventory_id' => $p->inventory_id,
@@ -296,7 +297,7 @@ class PenangananController extends Controller
             'jenis_kerusakan' => $p->jenis_kerusakan,
             'jenis_label' => Penanganan::JENIS[$p->jenis_kerusakan] ?? $p->jenis_kerusakan,
             'keluhan' => $p->keluhan,
-            'foto_url' => Storage::disk('public')->url($p->foto),
+            'foto_url' => $disk->url($p->foto),
             'tanggal_lapor' => $p->tanggal_lapor->format('Y-m-d'),
             'lapor_at' => $p->lapor_at?->toIso8601String(),
             'tanggal_diterima' => $p->tanggal_diterima?->format('Y-m-d'),
