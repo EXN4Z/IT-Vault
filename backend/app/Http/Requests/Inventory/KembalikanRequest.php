@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Inventory;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class KembalikanRequest extends FormRequest
 {
@@ -14,8 +15,12 @@ class KembalikanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // kode pemakai dari struk serah terima; dicocokkan dengan pemakai barang ini di controller
-            'nomor_penerimaan' => ['required', 'string', 'max:50'],
+            // kode pemakai dari struk serah terima; dicocokkan dengan pemakai barang ini di controller.
+            // wajib untuk admin saja: user yang mengembalikan barangnya sendiri sudah terbukti lewat login
+            'nomor_penerimaan' => [
+                Rule::requiredIf(fn () => $this->user()?->role?->nama === 'admin'),
+                'nullable', 'string', 'max:50',
+            ],
             'tanggal_pengembalian' => ['required', 'date_format:Y-m-d'],
             'catatan' => ['nullable', 'string', 'max:1000'],
         ];

@@ -1,14 +1,10 @@
 import { useAuth } from '../../context/AuthContext';
+import AdminDashboardPage from './AdminDashboardPage';
+import UserDashboardPage from './UserDashboardPage';
 
-// halaman sementara; diganti dashboard asli nanti
-// (tombol keluar sudah ada di sidebar, jadi tidak perlu lagi di sini)
+// pintu masuk route "/": admin melihat dashboard admin, user melihat dashboard user
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { isAdmin } = useAuth();
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <p className="mt-2 text-sm text-ink-muted">Halo, {user?.name}</p>
-    </div>
-  );
+  return isAdmin ? <AdminDashboardPage /> : <UserDashboardPage />;
 }
