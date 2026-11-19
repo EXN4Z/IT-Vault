@@ -21,7 +21,6 @@ use App\Notifications\InventoryKerusakanDilaporkan;
 use App\Notifications\InventoryKerusakanSelesai;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
-use App\Notifications\AsetPenangananSelesai;
 
 class PenangananController extends Controller
 {
