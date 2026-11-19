@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
-import { Banknote, CalendarDays, ClipboardCheck, Cpu, ExternalLink, Loader2, MessageSquare, Wrench } from 'lucide-react';
+import { Banknote, CalendarDays, ClipboardCheck, Cpu, Loader2, Maximize2, MessageSquare, Wrench } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
+import ImageZoomModal from '../../../components/modal/ImageZoomModal';
 import Badge from '../../../components/ui/Badge';
 import { ComboBox, DatePicker, FormField, inputClass, textareaClass } from '../../../components/form';
 import { btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
@@ -36,6 +37,7 @@ export default function PenangananSelesaiModal({ open, penanganan, onClose, onSa
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [prevOpen, setPrevOpen] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   // tiap modal dibuka: kosongkan form
   if (open !== prevOpen) {
@@ -123,136 +125,148 @@ export default function PenangananSelesaiModal({ open, penanganan, onClose, onSa
     : [];
 
   return (
-    <Modal
-      open={open}
-      onClose={() => { if (!saving) onClose(); }}
-      title="Selesaikan perbaikan"
-      eyebrow={p ? [barang?.kode_inventory, p.jenis_label].filter(Boolean).join(' · ') : undefined}
-      titleExtra={p && <Badge dot={status?.dot ?? 'bg-ink-muted'}>{status?.label ?? p.status}</Badge>}
-      size="lg"
-      footer={
-        <>
-          <button type="button" className={btnOutline} onClick={onClose} disabled={saving}>Batal</button>
-          <button type="submit" form={formId} className={btnSolid} disabled={saving || !p}>
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            Selesaikan & Cetak Struk
-          </button>
-        </>
-      }
-    >
-      <form id={formId} onSubmit={submit} className="flex flex-col gap-5">
-        {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
-
-        {p && (
+    <>
+      <Modal
+        open={open}
+        onClose={() => { if (!saving) onClose(); }}
+        title="Selesaikan perbaikan"
+        eyebrow={p ? [barang?.kode_inventory, p.jenis_label].filter(Boolean).join(' · ') : undefined}
+        titleExtra={p && <Badge dot={status?.dot ?? 'bg-ink-muted'}>{status?.label ?? p.status}</Badge>}
+        size="lg"
+        footer={
           <>
-            {/* foto kerusakan + keluhan */}
-            <div className="flex gap-4">
-              <a
-                href={p.foto_url}
-                target="_blank"
-                rel="noreferrer"
-                title="Buka foto ukuran penuh"
-                className="group relative block h-36 w-48 shrink-0 overflow-hidden rounded-lg border border-line bg-field"
-              >
-                <img src={p.foto_url} alt="Foto kerusakan" className="size-full object-cover" />
-                <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white opacity-90 transition group-hover:opacity-100">
-                  <ExternalLink size={10} />Perbesar
-                </span>
-              </a>
-              <div className="min-w-0 flex-1">
-                <h3 className={`${sectionTitle} mb-1 flex items-center gap-1.5`}><Wrench size={12} />Keluhan</h3>
-                <p className="whitespace-pre-wrap break-words rounded-lg bg-hover px-3 py-2.5 text-xs text-ink">{p.keluhan}</p>
-                <p className="mt-2 text-[11px] text-ink-muted">Jenis kerusakan: <span className="font-semibold text-ink-soft">{p.jenis_label}</span></p>
-              </div>
-            </div>
-
-            {/* data barang */}
-            <section>
-              <h3 className={`${sectionTitle} mb-1`}>Data Barang</h3>
-              <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-                {dataBarang.map(([label, nilai]) => (
-                  <div key={label} className={rowClass}>
-                    <dt className="shrink-0 text-ink-soft">{label}</dt>
-                    <dd className="min-w-0 break-words text-right font-semibold text-ink">{nilai}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-
-            {/* riwayat singkat: dilaporkan + diterima */}
-            <section>
-              <h3 className={`${sectionTitle} mb-1`}>Riwayat Penanganan</h3>
-              <dl>
-                {riwayat.map(([label, nilai]) => (
-                  <div key={label} className={rowClass}>
-                    <dt className="shrink-0 text-ink-soft">{label}</dt>
-                    <dd className="min-w-0 break-words text-right font-semibold text-ink">{nilai}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
+            <button type="button" className={btnOutline} onClick={onClose} disabled={saving}>Batal</button>
+            <button type="submit" form={formId} className={btnSolid} disabled={saving || !p}>
+              {saving && <Loader2 size={14} className="animate-spin" />}
+              Selesaikan & Cetak Struk
+            </button>
           </>
-        )}
+        }
+      >
+        <form id={formId} onSubmit={submit} className="flex flex-col gap-5">
+          {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
 
-        {/* isian penyelesaian */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FormField label="Hasil Perbaikan" required icon={ClipboardCheck} error={errors.hasil}>
-            <ComboBox
-              options={HASIL_OPTIONS}
-              value={hasil}
-              onChange={(v) => { setHasil(v as HasilPenanganan); clearError('hasil'); clearError('catatan'); clearError('harga_jasa'); clearError('biaya_komponen'); }}
-              placeholder="Pilih hasil"
-              searchable={false}
+          {p && (
+            <>
+              {/* foto kerusakan + keluhan */}
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setZoomOpen(true)}
+                  title="Perbesar foto"
+                  className="group relative block h-36 w-48 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-line bg-field text-left"
+                >
+                  <img
+                    src={p.foto_url}
+                    alt="Foto kerusakan"
+                    className="size-full object-cover transition duration-200 group-hover:scale-105"
+                  />
+                  <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white opacity-90 transition group-hover:opacity-100">
+                    <Maximize2 size={10} />Perbesar
+                  </span>
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h3 className={`${sectionTitle} mb-1 flex items-center gap-1.5`}><Wrench size={12} />Keluhan</h3>
+                  <p className="whitespace-pre-wrap break-words rounded-lg bg-hover px-3 py-2.5 text-xs text-ink">{p.keluhan}</p>
+                  <p className="mt-2 text-[11px] text-ink-muted">Jenis kerusakan: <span className="font-semibold text-ink-soft">{p.jenis_label}</span></p>
+                </div>
+              </div>
+
+              {/* data barang */}
+              <section>
+                <h3 className={`${sectionTitle} mb-1`}>Data Barang</h3>
+                <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+                  {dataBarang.map(([label, nilai]) => (
+                    <div key={label} className={rowClass}>
+                      <dt className="shrink-0 text-ink-soft">{label}</dt>
+                      <dd className="min-w-0 break-words text-right font-semibold text-ink">{nilai}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+
+              {/* riwayat singkat: dilaporkan + diterima */}
+              <section>
+                <h3 className={`${sectionTitle} mb-1`}>Riwayat Penanganan</h3>
+                <dl>
+                  {riwayat.map(([label, nilai]) => (
+                    <div key={label} className={rowClass}>
+                      <dt className="shrink-0 text-ink-soft">{label}</dt>
+                      <dd className="min-w-0 break-words text-right font-semibold text-ink">{nilai}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            </>
+          )}
+
+          {/* isian penyelesaian */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Hasil Perbaikan" required icon={ClipboardCheck} error={errors.hasil}>
+              <ComboBox
+                options={HASIL_OPTIONS}
+                value={hasil}
+                onChange={(v) => { setHasil(v as HasilPenanganan); clearError('hasil'); clearError('catatan'); clearError('harga_jasa'); clearError('biaya_komponen'); }}
+                placeholder="Pilih hasil"
+                searchable={false}
+              />
+            </FormField>
+
+            <FormField label="Tanggal Selesai" required icon={CalendarDays} error={errors.tanggal_selesai}>
+              <DatePicker value={tanggal} onChange={(v) => { setTanggal(v); clearError('tanggal_selesai'); }} />
+            </FormField>
+
+            <FormField label="Harga Jasa (Rp)" required={!rusakBerat} icon={Banknote} error={errors.harga_jasa}>
+              <input
+                value={hargaJasa}
+                onChange={(e) => { setHargaJasa(e.target.value.replace(/\D/g, '')); clearError('harga_jasa'); }}
+                inputMode="numeric"
+                placeholder="0"
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField label="Biaya Komponen (Rp)" required={!rusakBerat} icon={Cpu} error={errors.biaya_komponen}>
+              <input
+                value={biayaKomponen}
+                onChange={(e) => { setBiayaKomponen(e.target.value.replace(/\D/g, '')); clearError('biaya_komponen'); }}
+                inputMode="numeric"
+                placeholder="0"
+                className={inputClass}
+              />
+            </FormField>
+          </div>
+
+          <p className="flex items-center justify-between rounded-lg bg-hover px-3 py-2.5 text-xs text-ink-soft">
+            <span>Total biaya</span>
+            <span className="font-semibold text-ink">{rupiah(totalBiaya)}</span>
+          </p>
+
+          <FormField label={rusakBerat ? 'Catatan (alasan tidak bisa diperbaiki)' : 'Catatan'} required={rusakBerat} icon={MessageSquare} error={errors.catatan}>
+            <textarea
+              value={catatan}
+              onChange={(e) => { setCatatan(e.target.value); clearError('catatan'); }}
+              rows={3}
+              maxLength={1000}
+              placeholder={rusakBerat ? 'Contoh: motherboard korslet, biaya perbaikan melebihi nilai barang' : 'Contoh: ganti thermal paste dan bersihkan kipas'}
+              className={textareaClass}
             />
           </FormField>
 
-          <FormField label="Tanggal Selesai" required icon={CalendarDays} error={errors.tanggal_selesai}>
-            <DatePicker value={tanggal} onChange={(v) => { setTanggal(v); clearError('tanggal_selesai'); }} />
-          </FormField>
+          <p className="text-[11px] text-ink-muted">
+            {rusakBerat
+              ? 'Status barang menjadi Rusak Berat. Harga jasa dan biaya komponen boleh dikosongkan (di struk tampil "-"). Nomor struk dibuat otomatis dan struk langsung terbuka.'
+              : 'Status barang kembali ke Dipakai (kalau masih dipegang pemakai) atau Tersedia. Nomor struk dibuat otomatis dan struk langsung terbuka.'}
+          </p>
+        </form>
+      </Modal>
 
-          <FormField label="Harga Jasa (Rp)" required={!rusakBerat} icon={Banknote} error={errors.harga_jasa}>
-            <input
-              value={hargaJasa}
-              onChange={(e) => { setHargaJasa(e.target.value.replace(/\D/g, '')); clearError('harga_jasa'); }}
-              inputMode="numeric"
-              placeholder="0"
-              className={inputClass}
-            />
-          </FormField>
-
-          <FormField label="Biaya Komponen (Rp)" required={!rusakBerat} icon={Cpu} error={errors.biaya_komponen}>
-            <input
-              value={biayaKomponen}
-              onChange={(e) => { setBiayaKomponen(e.target.value.replace(/\D/g, '')); clearError('biaya_komponen'); }}
-              inputMode="numeric"
-              placeholder="0"
-              className={inputClass}
-            />
-          </FormField>
-        </div>
-
-        <p className="flex items-center justify-between rounded-lg bg-hover px-3 py-2.5 text-xs text-ink-soft">
-          <span>Total biaya</span>
-          <span className="font-semibold text-ink">{rupiah(totalBiaya)}</span>
-        </p>
-
-        <FormField label={rusakBerat ? 'Catatan (alasan tidak bisa diperbaiki)' : 'Catatan'} required={rusakBerat} icon={MessageSquare} error={errors.catatan}>
-          <textarea
-            value={catatan}
-            onChange={(e) => { setCatatan(e.target.value); clearError('catatan'); }}
-            rows={3}
-            maxLength={1000}
-            placeholder={rusakBerat ? 'Contoh: motherboard korslet, biaya perbaikan melebihi nilai barang' : 'Contoh: ganti thermal paste dan bersihkan kipas'}
-            className={textareaClass}
-          />
-        </FormField>
-
-        <p className="text-[11px] text-ink-muted">
-          {rusakBerat
-            ? 'Status barang menjadi Rusak Berat. Harga jasa dan biaya komponen boleh dikosongkan (di struk tampil "-"). Nomor struk dibuat otomatis dan struk langsung terbuka.'
-            : 'Status barang kembali ke Dipakai (kalau masih dipegang pemakai) atau Tersedia. Nomor struk dibuat otomatis dan struk langsung terbuka.'}
-        </p>
-      </form>
-    </Modal>
+      <ImageZoomModal
+        open={zoomOpen}
+        onClose={() => setZoomOpen(false)}
+        src={p?.foto_url}
+        alt={`Foto kerusakan ${barang?.nama ?? ''}`.trim()}
+      />
+    </>
   );
 }
