@@ -16,6 +16,7 @@ import type { LoginPayload, User } from '../types/auth';
 interface AuthContextValue {
   user: User | null;
   loading: boolean; // true selama pengecekan sesi awal (GET /me)
+  isAdmin: boolean; // role admin; selain itu (user / tanpa role) hanya melihat dashboard user
   login: (payload: LoginPayload) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -61,9 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const isAdmin = user?.role?.nama === 'admin';
+
   const value = useMemo(
-    () => ({ user, loading, login, logout }),
-    [user, loading, login, logout],
+    () => ({ user, loading, isAdmin, login, logout }),
+    [user, loading, isAdmin, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

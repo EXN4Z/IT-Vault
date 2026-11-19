@@ -31,7 +31,8 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Login berhasil.',
             'token' => $token,
-            'user' => $user,
+            // role ikut dikirim supaya frontend bisa menentukan dashboard (user / admin)
+            'user' => $user->load('role:id,nama'),
         ]);
     }
 
@@ -47,7 +48,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([
-            'user' => $request->user(),
+            'user' => $request->user()->load('role:id,nama'),
         ]);
     }
 }

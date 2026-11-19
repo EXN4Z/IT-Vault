@@ -10,6 +10,7 @@ use App\Models\Pemakai;
 use App\Models\PeminjamanItem;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -91,8 +92,9 @@ class PeminjamanController extends Controller
     // GET /inventory/{inventory}/struk -> cetak ulang struk serah terima yang sedang berjalan.
     // Nomor penerimaan tetap yang lama, tapi daftar kelengkapan dibaca ulang dari kondisi terbaru,
     // jadi kelengkapan yang dipasang menyusul ikut muncul. Modal Kembalikan juga memakai data ini.
-    public function struk(Inventory $inventory): JsonResponse
+    public function struk(Request $request, Inventory $inventory): JsonResponse
     {
+        $this->authorizePemegang($request->user(), $inventory);
         $this->ensureSedangDipakai($inventory, 'Struk hanya bisa dicetak ulang untuk barang utama yang sedang dipakai.');
 
         return response()->json($this->strukPayload($this->peminjamanAktif($inventory), $inventory));
@@ -100,8 +102,10 @@ class PeminjamanController extends Controller
 
     // POST /inventory/{inventory}/kembalikan { nomor_penerimaan, tanggal_pengembalian, catatan }
     // -> kembalikan barang utama beserta kelengkapannya. Mengembalikan data untuk struk pengembalian.
+    // admin: wajib menyebut nomor penerimaan dari struk. user: hanya boleh mengembalikan barang yang sedang ia pakai
     public function kembalikan(KembalikanRequest $request, Inventory $inventory): JsonResponse
     {
+        $this->authorizePemegang($request->user(), $inventory);
         $this->ensureSedangDipakai($inventory, 'Hanya barang utama yang sedang dipakai yang bisa dikembalikan.');
 
         $data = $request->validated();
@@ -113,8 +117,8 @@ class PeminjamanController extends Controller
 
             $pemakai = $this->peminjamanAktif($locked);
 
-            // kode pemakai harus cocok dengan yang tertera di struk serah terima
-            if (strcasecmp(trim($data['nomor_penerimaan']), $pemakai->nomor_penerimaan) !== 0) {
+            // kode pemakai harus cocok dengan yang tertera di struk serah terima (hanya diminta dari admin)
+            if ($this->isAdmin($request->user()) && strcasecmp(trim($data['nomor_penerimaan'] ?? ''), $pemakai->nomor_penerimaan) !== 0) {
                 throw ValidationException::withMessages([
                     'nomor_penerimaan' => 'Nomor penerimaan tidak cocok dengan pemakai barang ini.',
                 ]);
@@ -231,6 +235,19 @@ class PeminjamanController extends Controller
             ->values();
 
         return response()->json($rows);
+    }
+
+    private function isAdmin(User $user): bool
+    {
+        return $user->role?->nama === 'admin';
+    }
+
+    // admin boleh semua barang; user hanya barang yang sedang ia pakai
+    private function authorizePemegang(User $user, Inventory $inventory): void
+    {
+        if (! $this->isAdmin($user) && $inventory->pemakai_saat_ini_id !== $user->id) {
+            abort(403, 'Barang ini bukan yang sedang kamu pakai.');
+        }
     }
 
     // hanya barang utama berstatus tersedia yang boleh diserahkan

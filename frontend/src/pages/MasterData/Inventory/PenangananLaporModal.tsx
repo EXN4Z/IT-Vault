@@ -10,7 +10,7 @@ import { JENIS_KERUSAKAN, type Penanganan } from '../../../types/penanganan';
 
 interface PenangananLaporModalProps {
   open: boolean;
-  inventory: InventoryRow | null; // barang yang dilaporkan (terkunci, dibuka dari modal Detail)
+  inventory: Pick<InventoryRow, 'id' | 'kode_inventory' | 'nama'> | null; // barang yang dilaporkan (terkunci; dari modal Detail admin atau dashboard user)
   onClose: () => void;
   onSaved: (penanganan: Penanganan) => void; // dipanggil begitu laporan tersimpan (untuk memuat ulang tabel)
 }

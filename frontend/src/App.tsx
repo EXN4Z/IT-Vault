@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import AppLayout from './components/layout/AppLayout';
+import AdminOnly from './components/AdminOnly';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleLayout from './components/layout/RoleLayout';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import LoginPage from './pages/Login/LoginPage';
 import MasterDataPage from './pages/MasterData/MasterDataPage';
@@ -16,12 +17,17 @@ export default function App() {
 
       {/* halaman yang wajib login */}
       <Route element={<ProtectedRoute />}>
-        {/* halaman yang memakai sidebar + top bar */}
-        <Route element={<AppLayout />}>
+        {/* kerangka halaman mengikuti role: admin = sidebar + top bar, user = header sederhana */}
+        <Route element={<RoleLayout />}>
+          {/* dashboard dipilih sesuai role (admin / user), lihat DashboardPage */}
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/master-data" element={<MasterDataPage />} />
-          <Route path="/laporan" element={<LaporanPage />} />
-          <Route path="/transaksi/penanganan" element={<PenangananPage />} />
+
+          {/* halaman di bawah ini khusus admin; user dikembalikan ke dashboard */}
+          <Route element={<AdminOnly />}>
+            <Route path="/master-data" element={<MasterDataPage />} />
+            <Route path="/laporan" element={<LaporanPage />} />
+            <Route path="/transaksi/penanganan" element={<PenangananPage />} />
+          </Route>
         </Route>
       </Route>
 

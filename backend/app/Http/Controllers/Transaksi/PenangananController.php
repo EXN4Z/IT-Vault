@@ -128,7 +128,7 @@ class PenangananController extends Controller
     // Tidak ada struk di tahap ini (struk dicetak setelah perbaikan selesai).
     public function terima(TerimaPenangananRequest $request, Penanganan $penanganan): JsonResponse
     {
-        // TODO(permission): hanya admin yang boleh menerima laporan
+        // hanya admin: dibatasi lewat middleware role:admin di routes/api.php
         $user = $request->user();
         $data = $request->validated();
 
@@ -171,7 +171,7 @@ class PenangananController extends Controller
     // Status barang: berhasil -> dipakai (kalau masih dipegang peminjam) atau tersedia; tidak bisa diperbaiki -> rusak_berat.
     public function selesai(SelesaikanPenangananRequest $request, Penanganan $penanganan): JsonResponse
     {
-        // TODO(permission): hanya admin yang boleh menyelesaikan penanganan
+        // hanya admin: dibatasi lewat middleware role:admin di routes/api.php
         $data = $request->validated();
 
         $selesai = DB::transaction(function () use ($penanganan, $data) {
@@ -237,13 +237,11 @@ class PenangananController extends Controller
     // barang yang sudah dijual atau masih punya penanganan terbuka tidak bisa dilaporkan
     private function ensureBisaDilapor(Inventory $inventory, User $user): void
     {
-        // TODO(permission): aktifkan lagi kalau hak akses role sudah diatur
-        // (admin boleh semua barang, user peminjam hanya barang yang sedang ia pinjam)
-        // if (! $this->isAdmin($user) && $inventory->pemakai_saat_ini_id !== $user->id) {
-        //     throw ValidationException::withMessages([
-        //         'inventory' => 'Kamu hanya bisa melaporkan kerusakan barang yang sedang kamu pinjam.',
-        //     ]);
-        // }
+        if (! $this->isAdmin($user) && $inventory->pemakai_saat_ini_id !== $user->id) {
+            throw ValidationException::withMessages([
+                'inventory' => 'Kamu hanya bisa melaporkan kerusakan barang yang sedang kamu pinjam.',
+            ]);
+        }
 
         if ($inventory->status === 'dijual') {
             throw ValidationException::withMessages([

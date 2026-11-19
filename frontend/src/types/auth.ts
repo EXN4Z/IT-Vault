@@ -7,6 +7,7 @@ export interface User {
   email: string;
   phone: string | null;
   role_id: number | null;
+  role: { id: number; nama: string } | null; // dikirim backend di /login dan /me ('user' atau 'admin')
   cabang_id: number | null;
   nik: string | null;
   departemen_id: number | null;
