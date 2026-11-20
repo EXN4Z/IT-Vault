@@ -19,6 +19,7 @@ use App\Imports\InventoryBuktiImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use App\Exports\InventoryExport;
+use Illuminate\Support\Facades\Log;
 
 class InventoryController extends Controller
 {
@@ -238,56 +239,40 @@ class InventoryController extends Controller
 
     // PUT /inventory/{inventory}
     public function update(InventoryRequest $request, Inventory $inventory): JsonResponse
-    {
-        // hanya status Tersedia yang boleh diubah
-        if ($error = $inventory->editError()) {
-            throw ValidationException::withMessages(['inventory' => $error]);
-        }
-
-        $data = $request->safe()->except(['foto', 'hapus_foto']);
-        $fotoLama = $inventory->foto;
-        $path = null;
-
-        if ($request->hasFile('foto')) {
-            $path = $request->file('foto')->store('inventory', 'public');
-            $data['foto'] = $path;
-        } elseif ($request->boolean('hapus_foto')) {
-            $data['foto'] = null;
-        }
-
-        try {
-            $inventory->update($data);
-        } catch (\Throwable $e) {
-            if ($path !== null) {
-                Storage::disk('public')->delete($path);
-            }
-            throw $e;
-        }
-
-        // foto lama dibuang setelah data baru berhasil tersimpan
-        if ($fotoLama && array_key_exists('foto', $data)) {
-            Storage::disk('public')->delete($fotoLama);
-        }
-
-        $fotoLama = $inventory->foto;
-        $gantiFoto = $request->hasFile('foto');
-        $buangFoto = ! $gantiFoto && $request->boolean('hapus_foto');
-
-        if ($gantiFoto) {
-            $data['foto'] = $request->file('foto')->store('inventory', 'public');
-        } elseif ($buangFoto) {
-            $data['foto'] = null;
-        }
-
-        $inventory->update($data);
-
-        // file lama dihapus setelah update berhasil
-        if ($fotoLama && ($gantiFoto || $buangFoto)) {
-            Storage::disk('public')->delete($fotoLama);
-        }
-
-        return response()->json($inventory->refresh()->load(self::WITH));
+{
+    // hanya status Tersedia yang boleh diubah
+    if ($error = $inventory->editError()) {
+        throw ValidationException::withMessages(['inventory' => $error]);
     }
+
+    $data = $request->safe()->except(['foto', 'hapus_foto']);
+    $fotoLama = $inventory->foto;
+    $path = null;
+
+    if ($request->hasFile('foto')) {
+        $path = $request->file('foto')->store('inventory', 'public');
+        $data['foto'] = $path;
+    } elseif ($request->boolean('hapus_foto')) {
+        $data['foto'] = null;
+    }
+
+    try {
+        $inventory->update($data);
+    } catch (\Throwable $e) {
+        // gagal simpan: buang foto baru yang sempat tersimpan
+        if ($path !== null) {
+            Storage::disk('public')->delete($path);
+        }
+        throw $e;
+    }
+
+    // foto lama dibuang setelah data baru berhasil tersimpan
+    if ($fotoLama && array_key_exists('foto', $data) && $fotoLama !== ($data['foto'] ?? null)) {
+        Storage::disk('public')->delete($fotoLama);
+    }
+
+    return response()->json($inventory->refresh()->load(self::WITH));
+}
     // DELETE /inventory/{inventory}
     public function destroy(Inventory $inventory): Response
     {
