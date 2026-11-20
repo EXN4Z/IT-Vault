@@ -72,7 +72,7 @@ class InventoryKerusakanDilaporkan extends Notification
             'pelapor' => $this->pelaporName,
             'jenis_kerusakan' => $this->penanganan->jenis_kerusakan,
             'message' => "{$this->namaPelapor()} melaporkan kerusakan {$this->penanganan->jenis_kerusakan} pada {$this->namaAset()}.",
-            'url' => '/penanganan',
+            'url' => '/transaksi/penanganan',
         ];
     }
 
@@ -87,7 +87,7 @@ class InventoryKerusakanDilaporkan extends Notification
             ->title('Laporan Kerusakan Inventory')
             ->icon('/logo.png')
             ->body("{$this->namaPelapor()} melaporkan kerusakan {$this->penanganan->jenis_kerusakan} pada {$this->namaAset()}.")
-            ->data(['url' => '/penanganan'])
+            ->data(['url' => '/transaksi/penanganan'])
             ->options(['TTL' => 300]);
     }
 }

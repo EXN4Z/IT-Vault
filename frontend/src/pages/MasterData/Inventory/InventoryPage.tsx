@@ -353,9 +353,13 @@ export default function InventoryPage() {
             <button
               type="button"
               aria-label="Lepas link"
-              title={i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci' : `Lepas link dari ${i.parent?.kode_inventory ?? 'barang utama'}`}
+              title={
+                i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci'
+                  : i.status === 'dipakai' ? 'Inventory yang sedang dipakai tidak bisa dilepas link-nya, kembalikan dulu'
+                    : `Lepas link dari ${i.parent?.kode_inventory ?? 'barang utama'}`
+              }
               className={iconBtn}
-              disabled={i.status === 'dijual'}
+              disabled={i.status === 'dijual' || i.status === 'dipakai'}
               onClick={() => openLink(i)}
             ><Unlink size={14} /></button>
           ) : (
@@ -365,12 +369,18 @@ export default function InventoryPage() {
               aria-label="Link ke barang utama"
               title={
                 i.status === 'dijual' ? 'Inventory yang sudah dijual terkunci'
-                  : i.status === 'rusak_berat' ? 'Inventory rusak berat tidak bisa di-link ke barang utama'
-                    : (i.children_count ?? 0) > 0 ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain'
-                      : 'Link ke barang utama'
+                  : i.status === 'dipakai' ? 'Inventory yang sedang dipakai tidak bisa di-link, kembalikan dulu'
+                    : i.status === 'rusak_berat' ? 'Inventory rusak berat tidak bisa di-link ke barang utama'
+                      : (i.children_count ?? 0) > 0 ? 'Sudah jadi barang utama, tidak bisa di-link ke inventory lain'
+                        : 'Link ke barang utama'
               }
               className={iconBtn}
-              disabled={i.status === 'dijual' || i.status === 'rusak_berat' || (i.children_count ?? 0) > 0}
+              disabled={
+                i.status === 'dijual' ||
+                i.status === 'dipakai' ||
+                i.status === 'rusak_berat' ||
+                (i.children_count ?? 0) > 0
+              }
               onClick={() => openLink(i)}
             ><Link2 size={14} /></button>
           )}

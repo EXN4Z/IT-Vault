@@ -196,7 +196,7 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
             </div>
 
             {/* daftar menu */}
-            <nav aria-label="Menu utama" className="flex-1 space-y-1 overflow-y-auto px-2.5 pb-3">
+            <nav aria-label="Menu utama" className="flex-1 space-y-1 overflow-y-auto px-2.5 pb-3 no-scrollbar">
               <p className={groupLabelClass}>Menu</p>
               {menuItems.map(renderRow)}
 

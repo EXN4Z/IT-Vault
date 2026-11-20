@@ -96,3 +96,11 @@ body {
   background-color: var(--color-page);
   color: var(--color-ink);
 }
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
