@@ -30,7 +30,9 @@ class PeminjamanController extends Controller
     public function karyawan(): JsonResponse
     {
         return response()->json(
-            User::where('status', 'aktif')->orderBy('name')->get(['id', 'name', 'nik'])
+            User::orderByRaw("status = 'aktif' desc") // yang aktif di atas, nonaktif di bawah
+                ->orderBy('name')
+                ->get(['id', 'name', 'nik', 'status'])
         );
     }
 
