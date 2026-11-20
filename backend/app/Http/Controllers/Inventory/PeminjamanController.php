@@ -97,7 +97,10 @@ class PeminjamanController extends Controller
     public function struk(Request $request, Inventory $inventory): JsonResponse
     {
         $this->authorizePemegang($request->user(), $inventory);
-        $this->ensureSedangDipakai($inventory, 'Struk hanya bisa dicetak ulang untuk barang utama yang sedang dipakai.');
+        // struk bukti peminjaman boleh dibuka selama peminjaman masih berjalan (termasuk saat barang menunggu perbaikan / rusak berat)
+        if ($inventory->parent_id !== null) {
+            throw ValidationException::withMessages(['inventory' => 'Struk hanya tersedia untuk barang utama yang sedang dipinjam.']);
+        }
 
         return response()->json($this->strukPayload($this->peminjamanAktif($inventory), $inventory));
     }

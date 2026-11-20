@@ -1,0 +1,27 @@
+{
+  "modified": [
+    "backend/app/Http/Controllers/Inventory/PeminjamanController.php",
+    "backend/app/Http/Controllers/Login/AuthController.php",
+    "backend/app/Http/Controllers/Transaksi/PenangananController.php",
+    "backend/app/Http/Requests/Inventory/KembalikanRequest.php",
+    "backend/bootstrap/app.php",
+    "backend/routes/api.php",
+    "frontend/src/App.tsx",
+    "frontend/src/context/AuthContext.tsx",
+    "frontend/src/pages/Dashboard/DashboardPage.tsx",
+    "frontend/src/pages/MasterData/Inventory/PenangananLaporModal.tsx",
+    "frontend/src/types/auth.ts"
+  ],
+  "created": [
+    "backend/app/Http/Controllers/Inventory/MyInventoryController.php",
+    "backend/app/Http/Middleware/EnsureRole.php",
+    "frontend/src/components/AdminOnly.tsx",
+    "frontend/src/components/layout/RoleLayout.tsx",
+    "frontend/src/components/layout/UserLayout.tsx",
+    "frontend/src/pages/Dashboard/AdminDashboardPage.tsx",
+    "frontend/src/pages/Dashboard/UserDashboardPage.tsx",
+    "frontend/src/pages/Dashboard/UserReturnModal.tsx",
+    "frontend/src/services/myInventoryService.ts",
+    "frontend/src/types/myInventory.ts"
+  ]
+}
