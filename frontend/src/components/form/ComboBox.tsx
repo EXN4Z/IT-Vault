@@ -7,6 +7,7 @@ import { getPosition, type Position } from './floating';
 export interface ComboboxOption {
   value: string;
   label: string;
+  disabled?: string;
 }
 
 interface ComboboxProps {
@@ -115,17 +116,24 @@ export default function ComboBox({
     if (open) itemRefs.current[active]?.scrollIntoView({ block: 'nearest' });
   }, [active, open]);
 
+  const move = (dir: 1 | -1) =>
+  setActive((i) => {
+    let n = i + dir;
+    while (n >= 0 && n < filtered.length && filtered[n].disabled) n += dir;
+    return n >= 0 && n < filtered.length ? n : i;
+  });
+
   const handleKey = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActive((i) => Math.min(i + 1, filtered.length - 1));
+      move(1);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActive((i) => Math.max(i - 1, 0));
+      move(-1);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const option = filtered[active];
-      if (option) pick(option.value);
+      if (option && !option.disabled) pick(option.value);
     } else if (e.key === 'Escape') {
       e.stopPropagation(); // supaya Esc hanya menutup dropdown, bukan seluruh Modal
       closePanel();
@@ -201,14 +209,20 @@ export default function ComboBox({
                     type="button"
                     role="option"
                     aria-selected={o.value === value}
-                    onMouseEnter={() => setActive(i)}
+                    aria-disabled={!!o.disabled}
+                    disabled={!!o.disabled}
+                    onMouseEnter={() => { if (!o.disabled) setActive(i); }}
                     onClick={() => pick(o.value)}
-                    className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs transition ${
-                      i === active ? 'bg-selected' : ''
-                    }`}
+                    className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs transition ${
+                      o.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                    } ${i === active && !o.disabled ? 'bg-selected' : ''}`}
                   >
                     <span className="truncate">{o.label}</span>
-                    {o.value === value && <Check size={14} className="shrink-0 text-accent" />}
+                    {o.disabled ? (
+                      <span className="shrink-0 text-[11px] text-ink-muted">{o.disabled}</span>
+                    ) : (
+                      o.value === value && <Check size={14} className="shrink-0 text-accent" />
+                    )}
                   </button>
                 ))
               )}

@@ -3,6 +3,7 @@ export interface KaryawanOption {
   id: number;
   name: string;
   nik: string | null;
+  status: string;
 }
 
 // satu baris barang di struk (barang utama atau kelengkapan)

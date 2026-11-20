@@ -69,10 +69,15 @@ export default function InventoryHandoverModal({ open, inventory, onClose, onSav
   }, [open, karyawan]);
 
   const karyawanOptions = useMemo(
-    () => (karyawan ?? []).map((k) => ({ value: String(k.id), label: k.nik ? `${k.name} (${k.nik})` : k.name })),
+    () =>
+      (karyawan ?? []).map((k) => ({
+        value: String(k.id),
+        label: k.nik ? `${k.name} (${k.nik})` : k.name,
+        disabled: k.status === 'aktif' ? undefined : 'Nonaktif',
+      })),
     [karyawan],
   );
-
+  
   const setField = (key: keyof FormState) => (value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: '' }));
