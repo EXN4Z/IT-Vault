@@ -1,24 +1,31 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Inbox, MonitorCog, Package } from 'lucide-react';
+import { ImageOff, Inbox, MonitorCog } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
-import { useAuth } from '../../context/AuthContext';
 import { getErrorMessage } from '../../lib/errors';
 import { formatLama, hariSejak, lamaSejak, tglJam } from '../../lib/waktu';
 import { inventoryService } from '../../services/inventoryService';
 import { penangananService } from '../../services/penangananService';
 import { INVENTORY_STATUSES, type InventoryRow, type InventoryStatus } from '../../types/inventory';
 import type { Penanganan } from '../../types/penanganan';
+import NotificationPanel from './NotificationPanel';
 
 const BATAS_HARI = 7; // sama dengan halaman Penanganan: laporan belum diterima lebih dari ini = terlambat
 
 type StatusCount = Record<InventoryStatus, number>;
 
+interface PembelianTitik {
+  label: string;
+  judul: string;
+  jumlah: number;
+}
+
 interface DashboardData {
   perStatus: StatusCount;
   total: number;
   terbaru: InventoryRow[];
+  trenBulanan: PembelianTitik[];
   menunggu: Penanganan[];
   jumlahMenunggu: number;
   diproses: number;
@@ -27,11 +34,193 @@ interface DashboardData {
   terlambat: number;
 }
 
+// ===== KOMPONEN CHART DARI KODE LAMA =====
+const W = 720;
+const H = 190;
+const PAD_L = 44;
+const PAD_R = 16;
+const Y_TOP = 60;
+const Y_BASE = 160;
+
+function skala(vals: number[]) {
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const pilihan = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000];
+  let step = pilihan[pilihan.length - 1];
+  for (const s of pilihan) {
+    if (Math.floor(min / s) * s + 3 * s >= max) {
+      step = s;
+      break;
+    }
+  }
+  return { lo: Math.floor(min / step) * step, step };
+}
+
+function smooth(p: [number, number][]): string {
+  if (p.length === 1) return `M${p[0][0]} ${p[0][1]}`;
+  let d = `M${p[0][0]} ${p[0][1]}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[i - 1] ?? p[i];
+    const b = p[i];
+    const c = p[i + 1];
+    const e = p[i + 2] ?? c;
+    d += ` C${b[0] + (c[0] - a[0]) / 6} ${b[1] + (c[1] - a[1]) / 6}, ${c[0] - (e[0] - b[0]) / 6} ${c[1] - (e[1] - b[1]) / 6}, ${c[0]} ${c[1]}`;
+  }
+  return d;
+}
+
+function PertumbuhanChart({ rows, judulChart = 'Pertumbuhan inventory per bulan' }: { rows: PembelianTitik[]; judulChart?: string }) {
+  const last = rows.length - 1;
+  const [hover, setHover] = useState<number | null>(null);
+  const active = hover !== null && hover <= last ? hover : last;
+
+  if (rows.length === 0) return null;
+
+  const vals = rows.map((r) => r.jumlah);
+  const { lo, step } = skala(vals);
+  const top = lo + step * 3;
+  const y = (v: number) => Y_BASE - ((v - lo) / (top - lo)) * (Y_BASE - Y_TOP);
+  const x = (i: number) => (rows.length === 1 ? (PAD_L + W - PAD_R) / 2 : PAD_L + (i * (W - PAD_L - PAD_R)) / (rows.length - 1));
+
+  const pts = vals.map((v, i) => [x(i), y(v)] as [number, number]);
+  const line = smooth(pts);
+  const area = `${line} L${pts[last][0]} ${Y_BASE} L${pts[0][0]} ${Y_BASE} Z`;
+  const q = pts[active];
+
+  const diff = active > 0 ? vals[active] - vals[active - 1] : null;
+  const deltaText = diff === null ? 'Data awal' : `${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff)} Unit`;
+  const deltaTurun = diff !== null && diff < 0;
+  const namaBulan = rows[active].judul;
+
+  const BW = 110;
+  const bx = Math.min(Math.max(q[0] - BW / 2, 4), W - BW - 4);
+  const by = Math.max(q[1] - 70, 2);
+
+  const onMove = (clientX: number, el: SVGSVGElement) => {
+    const r = el.getBoundingClientRect();
+    const vx = ((clientX - r.left) * W) / r.width;
+    let best = 0;
+    let bestD = Infinity;
+    pts.forEach((pt, i) => {
+      const dd = Math.abs(pt[0] - vx);
+      if (dd < bestD) {
+        bestD = dd;
+        best = i;
+      }
+    });
+    if (best !== hover) setHover(best);
+  };
+
+  return (
+    <svg
+      className="h-auto w-full select-none overflow-visible"
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={`${judulChart}. ${namaBulan}: ${vals[active]} unit.`}
+      onMouseMove={(e) => onMove(e.clientX, e.currentTarget)}
+      onMouseLeave={() => setHover(null)}
+      onTouchStart={(e) => onMove(e.touches[0].clientX, e.currentTarget)}
+      onTouchMove={(e) => onMove(e.touches[0].clientX, e.currentTarget)}
+    >
+      <defs>
+        <linearGradient id="chart-area-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" className="text-accent" stopOpacity={0.28} />
+          <stop offset="100%" stopColor="currentColor" className="text-accent" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+
+      {[0, 1, 2, 3].map((i) => {
+        const v = lo + i * step;
+        return (
+          <g key={v}>
+            <line x1={PAD_L - 14} x2={W - 4} y1={y(v)} y2={y(v)} className="stroke-line" />
+            <text x={0} y={y(v) + 3} fontSize={9} className="fill-ink-muted">
+              {v}
+            </text>
+          </g>
+        );
+      })}
+
+      <path d={area} fill="url(#chart-area-fill)" />
+      <path d={line} fill="none" strokeWidth={2.2} strokeLinecap="round" className="stroke-accent" />
+
+      {pts.map((pt, i) =>
+        i === active ? null : (
+          <circle key={i} cx={pt[0]} cy={pt[1]} r={3} strokeWidth={1.5} className="fill-surface stroke-accent" />
+        ),
+      )}
+
+      <line x1={q[0]} x2={q[0]} y1={q[1] + 9} y2={Y_BASE} strokeDasharray="3 3" className="stroke-accent" />
+      <circle cx={q[0]} cy={q[1]} r={9} className="fill-accent/15" />
+      <circle cx={q[0]} cy={q[1]} r={5} strokeWidth={2} className="fill-accent stroke-surface" />
+
+      {/* Tooltip */}
+      <rect x={bx} y={by} width={BW} height={52} rx={8} className="fill-ink" />
+      <polygon points={`${q[0] - 5},${by + 52} ${q[0] + 5},${by + 52} ${q[0]},${by + 58}`} className="fill-ink" />
+      <text x={bx + 12} y={by + 17} fontSize={9} className="fill-surface opacity-70">
+        {namaBulan}
+      </text>
+      <text x={bx + 12} y={by + 34} fontSize={14} fontWeight={700} className="fill-surface">
+        {vals[active]} Unit
+      </text>
+      <text x={bx + 12} y={by + 46} fontSize={9} className={deltaTurun ? 'fill-danger' : 'fill-success'}>
+        {deltaText}
+      </text>
+
+      {rows.map((r, i) => (
+        <text
+          key={r.label + i}
+          x={pts[i][0]}
+          y={H - 8}
+          textAnchor="middle"
+          fontSize={9}
+          fontWeight={i === active ? 700 : 400}
+          className={i === active ? 'fill-ink' : 'fill-ink-muted'}
+        >
+          {r.label}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
+// Hitung distribusi 6 bulan terakhir dari data inventory yang ada
+function hitungTrenBulanan(list: InventoryRow[]): PembelianTitik[] {
+  const bulanPendek = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const bulanPenuh = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const now = new Date();
+  const buckets: { key: string; label: string; judul: string; jumlah: number }[] = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    buckets.push({
+      key,
+      label: bulanPendek[d.getMonth()],
+      judul: `${bulanPenuh[d.getMonth()]} ${d.getFullYear()}`,
+      jumlah: 0,
+    });
+  }
+
+  for (const item of list) {
+    const raw = (item as InventoryRow & { tanggal_invoice?: string; created_at?: string }).tanggal_invoice ??
+      (item as InventoryRow & { created_at?: string }).created_at;
+    if (!raw) continue;
+    const dt = new Date(raw);
+    if (isNaN(dt.getTime())) continue;
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+    const found = buckets.find((b) => b.key === key);
+    if (found) found.jumlah += 1;
+  }
+
+  return buckets.map(({ label, judul, jumlah }) => ({ label, judul, jumlah }));
+}
+
 // semua angka dashboard diambil dari endpoint yang sudah ada (total tiap status = `total` dari paginasi)
 async function loadDashboard(): Promise<DashboardData> {
   const [counts, terbaru, menunggu, diproses, berhasil, rusakBerat] = await Promise.all([
     Promise.all(INVENTORY_STATUSES.map((s) => inventoryService.list(1, 1, s.key))),
-    inventoryService.list(1, 5, undefined, undefined, 'kode_inventory', 'desc'),
+    inventoryService.list(1, 100, undefined, undefined, 'kode_inventory', 'desc'),
     penangananService.list(1, 5, 'menunggu'),
     penangananService.list(1, 1, 'diproses'),
     penangananService.list(1, 1, 'berhasil'),
@@ -43,7 +232,8 @@ async function loadDashboard(): Promise<DashboardData> {
   return {
     perStatus,
     total: Object.values(perStatus).reduce((a, b) => a + b, 0),
-    terbaru: terbaru.data,
+    terbaru: terbaru.data.slice(0, 5),
+    trenBulanan: hitungTrenBulanan(terbaru.data),
     menunggu: menunggu.data,
     jumlahMenunggu: menunggu.total,
     diproses: diproses.total,
@@ -53,7 +243,7 @@ async function loadDashboard(): Promise<DashboardData> {
   };
 }
 
-const card = 'rounded-xl border border-line bg-surface p-5';
+const card = 'rounded-sm border border-line bg-surface p-5';
 const label = 'text-xs text-ink-muted';
 const caption = 'text-[11px] font-medium uppercase tracking-wide text-ink-muted';
 const num = (v: number | undefined) => (v === undefined ? '-' : v.toLocaleString('id-ID'));
@@ -70,7 +260,6 @@ function Row({ name, children }: { name: string; children: ReactNode }) {
 
 // dashboard admin: grid kartu mengikuti desain referensi (sidebar dan top bar tetap dari AppLayout)
 export default function AdminDashboardPage() {
-  const { user } = useAuth();
   const [data, setData] = useState<DashboardData>();
   const [error, setError] = useState('');
 
@@ -95,16 +284,52 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
+  const tren = data?.trenBulanan ?? [];
+  const bulanIni = tren[tren.length - 1]?.jumlah ?? 0;
+  const bulanLalu = tren.length > 1 ? tren[tren.length - 2].jumlah : 0;
+  const selisih = bulanIni - bulanLalu;
+
   return (
-    <div className="mx-auto max-w-6xl">
-      {/* ===== judul ===== */}
-      <div className="mb-4 px-1">
-        <h1 className="text-xl font-bold">Dashboard</h1>
-        <p className="mt-0.5 text-xs text-ink-muted">Halo, {user?.name}</p>
+    <div className="mx-auto max-w-6xl space-y-4">
+
+      {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
+
+      {/* ===== BARIS ATAS: CHART (KIRI, 2 KOLOM) + NOTIFIKASI (KANAN, 1 KOLOM) ===== */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch">
+        <section className={`${card} flex flex-col justify-between lg:col-span-2`}>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold">Pertumbuhan inventory</h2>
+              <p className="mt-0.5 text-xs text-ink-muted">Penambahan unit dalam 6 bulan terakhir</p>
+            </div>
+            {data && (
+              <div className="text-right">
+                <p className="text-lg font-semibold tabular-nums leading-tight">{num(bulanIni)} Unit</p>
+                <p className={`text-[11px] font-medium ${selisih < 0 ? 'text-danger' : 'text-success'}`}>
+                  {selisih > 0 ? `▲ +${selisih}` : selisih < 0 ? `▼ ${selisih}` : '0'} dari bulan lalu
+                </p>
+              </div>
+            )}
+          </div>
+
+          {!data && !error ? (
+            <div className="flex h-[190px] items-center justify-center gap-2 text-xs text-ink-muted">
+              <MonitorCog size={14} />
+              Memuat grafik...
+            </div>
+          ) : tren.length === 0 ? (
+            <div className="flex h-[190px] items-center justify-center text-xs text-ink-muted">Belum ada data inventory.</div>
+          ) : (
+            <PertumbuhanChart rows={tren} />
+          )}
+        </section>
+
+        <div className="min-w-0">
+          <NotificationPanel />
+        </div>
       </div>
 
-      {error && <p className="mb-4 rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
-
+      {/* ===== GRID UTAMA 3 KOLOM ===== */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* ===== kolom kiri: total inventory + pemakaian ===== */}
         <div className="flex flex-col gap-4 lg:row-span-2">
@@ -151,9 +376,22 @@ export default function AdminDashboardPage() {
               const st = INVENTORY_STATUSES.find((s) => s.key === item.status);
               return (
                 <li key={item.id} className="flex items-center gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-hover text-ink-muted">
-                    <Package size={16} />
-                  </span>
+                  {item.foto_url ? (
+                    <img
+                      src={item.foto_url}
+                      alt={`Foto ${item.nama || item.kode_inventory}`}
+                      loading="lazy"
+                      className="size-10 shrink-0 rounded-lg border border-line bg-hover object-cover"
+                    />
+                  ) : (
+                    <span
+                      className="grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-hover text-ink-muted"
+                      role="img"
+                      aria-label="Tanpa foto"
+                    >
+                      <ImageOff size={16} />
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{item.nama || item.merk || item.kode_inventory}</p>
                     <p className="truncate text-xs text-ink-muted">

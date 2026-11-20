@@ -226,7 +226,7 @@ export default function UserDashboardPage() {
           )}
 
           {items && items.length === 0 && (
-            <section className="rounded-xl border border-line bg-surface py-12 text-center">
+            <section className="rounded-sm border border-line bg-surface py-12 text-center">
               <Package size={22} className="mx-auto text-ink-muted" />
               <p className="mt-3 text-sm font-medium">Belum ada inventory</p>
               <p className="mt-1 text-xs text-ink-muted">Barang yang diserahkan tim IT ke kamu akan tampil di sini.</p>
@@ -236,7 +236,7 @@ export default function UserDashboardPage() {
           {items && items.length > 0 && (
             <>
               {/* ===== ringkasan: satu strip tipis ===== */}
-              <section className="grid grid-cols-2 divide-line rounded-xl border border-line bg-surface md:grid-cols-4 md:divide-x">
+              <section className="grid grid-cols-2 divide-line rounded-sm border border-line bg-surface md:grid-cols-4 md:divide-x">
                 {stats.map((s) => (
                   <div key={s.label} className="flex flex-col items-start px-4 py-2.5">
                     <p className="text-[11px] text-ink-muted">{s.label}</p>
@@ -249,7 +249,7 @@ export default function UserDashboardPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {kartuRows.map((item) => (
-                    <article key={item.id} className="flex min-w-0 flex-col rounded-xl border border-line bg-surface">
+                    <article key={item.id} className="flex min-w-0 flex-col rounded-sm border border-line bg-surface">
                       {/* kepala: nama, kode, status */}
                       <header className="flex items-start gap-3 p-4 pb-3">
                         {item.foto_url ? (
@@ -357,53 +357,61 @@ export default function UserDashboardPage() {
                   <Pagination page={kartuCurrent} pageCount={kartuCount} onPageChange={setKartuPage} />
                 </div>
               </div>
-
-              {/* ===== laporan kerusakan berjalan (hanya muncul kalau ada) ===== */}
-              {laporan.length > 0 && (
-                <section className="rounded-xl border border-line bg-surface">
+                {/* ===== laporan kerusakan berjalan (tetap tampil walau kosong) ===== */}
+                <section className="rounded-sm border border-line bg-surface">
                   <h2 className="px-4 pb-2 pt-3.5 text-sm font-semibold">Laporan kerusakan</h2>
-                  <ul className="divide-y divide-line/60 border-t border-line">
-                    {laporanRows.map((l) => {
-                      const sejakLapor = l.lapor_at ? `${formatLama(l.lapor_at, now)} lalu` : lamaLalu(l.tanggal_lapor, null, now);
-                      return (
-                        <li key={l.id} className="space-y-2.5 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-x-6 sm:space-y-0">
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="min-w-0 break-words text-sm font-medium">{l.nama}</p>
-                              {l.status === 'selesai' && (
-                                <span className="shrink-0">
-                                  <Badge dot={l.hasil === 'berhasil' ? 'bg-success' : 'bg-danger'}>
-                                    {l.hasil === 'berhasil' ? 'Berhasil' : 'Tidak bisa diperbaiki'}
-                                  </Badge>
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-ink-muted">
-                              {l.kode} · {l.jenis_label}
-                            </p>
-                            <p className="text-xs text-ink-muted">
-                              Dilapor <span className="whitespace-nowrap">{tglJamSama(l.tanggal_lapor, l.lapor_at)}</span>{' '}
-                              <span className="whitespace-nowrap">· {sejakLapor}</span>
-                            </p>
-                            {l.status === 'selesai' && l.tanggal_selesai && (
-                              <p className="text-xs text-ink-muted">
-                                Selesai <span className="whitespace-nowrap">{tglJam(l.tanggal_selesai, l.selesai_at)}</span>
-                                {l.selesai_at && <span className="whitespace-nowrap"> · {formatLama(l.selesai_at, now)} lalu</span>}
-                              </p>
-                            )}
-                          </div>
-                          <Tahap aktif={l.status === 'selesai' ? 2 : l.status === 'dilaporkan' ? 0 : 1} />
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {laporanCount > 1 && (
-                    <div className="flex justify-end border-t border-line px-4 py-3">
-                      <Pagination page={laporanCurrent} pageCount={laporanCount} onPageChange={setLaporanPage} />
+
+                  {laporan.length === 0 ? (
+                    <div className="flex min-h-[168px] flex-col items-center justify-center border-t border-line px-4 py-6 text-center">
+                      <Wrench size={20} className="text-ink-muted" />
+                      <p className="mt-2 text-xs font-medium text-ink">Tidak ada laporan kerusakan</p>
+                      <p className="mt-0.5 text-xs text-ink-muted">Tidak ada laporan kerusakanmu dalam 24 jam terakhir.</p>
                     </div>
+                  ) : (
+                    <>
+                      <ul className="divide-y divide-line/60 border-t border-line">
+                        {laporanRows.map((l) => {
+                          const sejakLapor = l.lapor_at ? `${formatLama(l.lapor_at, now)} lalu` : lamaLalu(l.tanggal_lapor, null, now);
+                          return (
+                            <li key={l.id} className="space-y-2.5 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-x-6 sm:space-y-0">
+                              <div className="min-w-0 space-y-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="min-w-0 break-words text-sm font-medium">{l.nama}</p>
+                                  {l.status === 'selesai' && (
+                                    <span className="shrink-0">
+                                      <Badge dot={l.hasil === 'berhasil' ? 'bg-success' : 'bg-danger'}>
+                                        {l.hasil === 'berhasil' ? 'Berhasil' : 'Tidak bisa diperbaiki'}
+                                      </Badge>
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-ink-muted">
+                                  {l.kode} · {l.jenis_label}
+                                </p>
+                                <p className="text-xs text-ink-muted">
+                                  Dilapor <span className="whitespace-nowrap">{tglJamSama(l.tanggal_lapor, l.lapor_at)}</span>{' '}
+                                  <span className="whitespace-nowrap">· {sejakLapor}</span>
+                                </p>
+                                {l.status === 'selesai' && l.tanggal_selesai && (
+                                  <p className="text-xs text-ink-muted">
+                                    Selesai <span className="whitespace-nowrap">{tglJam(l.tanggal_selesai, l.selesai_at)}</span>
+                                    {l.selesai_at && <span className="whitespace-nowrap"> · {formatLama(l.selesai_at, now)} lalu</span>}
+                                  </p>
+                                )}
+                              </div>
+                              <Tahap aktif={l.status === 'selesai' ? 2 : l.status === 'dilaporkan' ? 0 : 1} />
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {laporanCount > 1 && (
+                        <div className="flex justify-end border-t border-line px-4 py-3">
+                          <Pagination page={laporanCurrent} pageCount={laporanCount} onPageChange={setLaporanPage} />
+                        </div>
+                      )}
+                    </>
                   )}
                 </section>
-              )}
             </>
           )}
         </div>
@@ -413,7 +421,7 @@ export default function UserDashboardPage() {
           <NotificationPanel />
 
           {/* ===== riwayat perbaikan barang user (3 per halaman, sisanya lewat paginasi) ===== */}
-          <section className="rounded-xl border border-line bg-surface p-4">
+          <section className="rounded-sm border border-line bg-surface p-3 ">
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold">Riwayat perbaikan barang mu</h2>
               {riwayat && riwayat.total > 0 && <span className="shrink-0 text-xs text-ink-muted">{riwayat.total} perbaikan</span>}
@@ -451,7 +459,6 @@ export default function UserDashboardPage() {
                     <p className="text-[11px] text-ink-muted">
                       Dilapor {tglJamSama(r.tanggal_lapor, r.lapor_at)}
                       {r.tanggal_selesai && <> · selesai {tglJam(r.tanggal_selesai, r.selesai_at)}</>}
-                      {r.lapor_at && r.selesai_at && ` (${formatLama(r.lapor_at, r.selesai_at)})`}
                     </p>
                     {r.hasil === 'tidak_bisa_diperbaiki' && r.catatan && (
                       <p className="line-clamp-2 text-[11px] text-ink-muted">Alasan: {r.catatan}</p>
