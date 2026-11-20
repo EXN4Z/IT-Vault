@@ -60,7 +60,7 @@ class User extends Authenticatable
         return $this->belongsTo(Departemen::class);
     }
 
-    // pencarian nama / email / NIK; dipakai bersama oleh index dan export
+    // pencarian nama / email / NIK / role / status; dipakai bersama oleh index dan export
     public function scopeSearch(Builder $query, string $term): Builder
     {
         $term = mb_strtolower(trim($term));
@@ -71,10 +71,23 @@ class User extends Authenticatable
 
         $like = '%'.$term.'%';
 
+        // status dicocokkan dari awal kata (min. 3 huruf) dan bukan "mengandung",
+        // karena "aktif" ada di dalam "nonaktif" -> mengetik "aktif" tidak ikut memunculkan user nonaktif
+        $status = null;
+        if (mb_strlen($term) >= 3) {
+            if (str_starts_with('nonaktif', $term) || in_array($term, ['non aktif', 'non-aktif', 'tidak aktif'], true)) {
+                $status = 'nonaktif';
+            } elseif (str_starts_with('aktif', $term)) {
+                $status = 'aktif';
+            }
+        }
+
         return $query->where(fn ($w) => $w
             ->whereRaw('LOWER(name) LIKE ?', [$like])
             ->orWhereRaw('LOWER(email) LIKE ?', [$like])
             ->orWhereRaw('LOWER(nik) LIKE ?', [$like])
+            ->orWhereHas('role', fn ($r) => $r->whereRaw('LOWER(nama) LIKE ?', [$like]))
+            ->when($status, fn ($q) => $q->orWhere('status', $status))
         );
     }
 

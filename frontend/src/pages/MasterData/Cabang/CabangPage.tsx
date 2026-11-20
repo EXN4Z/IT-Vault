@@ -12,8 +12,6 @@ import { saveBlob } from '../../../lib/downloadExport';
 import type { Cabang } from '../../../types/cabang';
 import CabangFormModal from './CabangFormModal';
 
-const PER_PAGE = 10;
-
 // kolom yang bisa dipilih di modal export
 const EXPORT_COLUMNS: ExportColumn[] = [
   { key: 'nama', label: 'Nama' },
@@ -31,6 +29,7 @@ export default function CabangPage() {
   const [query, setQuery] = useState(''); // isi kolom cari (langsung)
   const [search, setSearch] = useState(''); // isi kolom cari yang dikirim ke server (ditunda)
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [rows, setRows] = useState<Cabang[]>([]);
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
@@ -57,6 +56,11 @@ export default function CabangPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const handlePerPageChange = (next: number) => {
+    setPerPage(next);
+    setPage(1);
+  };
+
   // tunda pencarian 300ms setelah berhenti mengetik
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -72,7 +76,7 @@ export default function CabangPage() {
     setLoading(true);
     setError('');
     cabangService
-      .list(page, PER_PAGE, search)
+      .list(page, perPage, search)
       .then((res) => {
         if (ignore) return;
         setRows(res.data);
@@ -82,7 +86,7 @@ export default function CabangPage() {
       .catch((err) => { if (!ignore) setError(getErrorMessage(err)); })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
-  }, [page, search, reloadKey]);
+  }, [page, perPage, search, reloadKey]);
 
   const openCreate = () => {
     setEditing(null);
@@ -112,7 +116,7 @@ export default function CabangPage() {
         // supaya "Hasil pencarian" dan "Halaman ini saja" sama persis dengan isi tabel
         search: opts.scope === 'all' ? undefined : search || undefined,
         page: opts.scope === 'page' ? page : undefined,
-        per_page: opts.scope === 'page' ? PER_PAGE : undefined,
+        per_page: opts.scope === 'page' ? perPage : undefined,
       });
 
       // sv-SE menghasilkan format YYYY-MM-DD dengan zona waktu lokal
@@ -234,7 +238,7 @@ export default function CabangPage() {
           rowKey={(p) => p.id}
           loading={loading}
           emptyText={error || 'Belum ada cabang.'}
-          pagination={{ page, pageCount, onPageChange: setPage }}
+          pagination={{ page, pageCount, onPageChange: setPage, perPage, onPerPageChange: handlePerPageChange }}
         />
       </div>
 
