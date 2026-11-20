@@ -38,7 +38,7 @@
 
   /* ----- aksen dan status ----- */
   --color-accent: #5b4a9b; /* fokus input, penanda utama */
-  --color-danger: #dc2626; /* teks error / keluar */
+  --color-danger: #ff3b30; /* teks error / keluar */
   --color-danger-bg: #fef2f2; /* latar error / keluar */
   --color-success: #10b981; /* indikator online, status aktif */
   --color-warn: #f97316; /* titik role admin */
@@ -84,8 +84,8 @@ html.dark {
   --color-solid-ink: #ffffff;
 
   --color-accent: #a594f5;
-  --color-danger: #ffb9ad;
-  --color-danger-bg: #2a2a30;
+  --color-danger: #ff5c5c;
+  --color-danger-bg: rgba(239, 68, 68, 0.15);
   --color-success: #34d399;
   --color-warn: #fb923c;
   --color-info: #a594f5;
