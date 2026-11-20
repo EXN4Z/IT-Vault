@@ -20,7 +20,6 @@ import PenangananSelesaiModal from './PenangananSelesaiModal';
 import PenangananTerimaModal from './PenangananTerimaModal';
 import { JENIS_KERUSAKAN, TAB_PENANGANAN, type Penanganan, type TabPenanganan } from '../../../types/penanganan';
 
-const PER_PAGE = 10;
 const BATAS_HARI = 7; // laporan yang belum diterima lebih dari ini ditandai terlambat
 
 // tombol ikon di kolom Aksi (sama dengan halaman Inventory)
@@ -67,6 +66,7 @@ export default function PenangananPage() {
   const [search, setSearch] = useState(''); // isi kolom cari yang dikirim ke server (ditunda)
   const [jenis, setJenis] = useState(''); // '' = semua jenis kerusakan
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [rows, setRows] = useState<Penanganan[]>([]);
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
@@ -97,6 +97,11 @@ export default function PenangananPage() {
   const [exportError, setExportError] = useState('');
 
   const [notice, setNotice] = useState(''); // pesan di atas tabel (mis. popup struk diblokir)
+
+  const handlePerPageChange = (next: number) => {
+    setPerPage(next);
+    setPage(1);
+  };
 
   const openSelesai = (p: Penanganan) => {
     setSelesaiTarget(p);
@@ -153,7 +158,7 @@ export default function PenangananPage() {
         jenis: opts.scope === 'all' ? undefined : jenis || undefined,
         search: opts.scope === 'all' ? undefined : search || undefined,
         page: opts.scope === 'page' ? page : undefined,
-        per_page: opts.scope === 'page' ? PER_PAGE : undefined,
+        per_page: opts.scope === 'page' ? perPage : undefined,
       });
       saveBlob(blob, `penanganan-${tab}-${new Date().toLocaleDateString('sv-SE')}.${opts.format}`);
       setExportOpen(false);
@@ -206,7 +211,7 @@ export default function PenangananPage() {
     setRows([]);
     setTotal(0);
     penangananService
-      .list(page, PER_PAGE, tab, jenis, search)
+      .list(page, perPage, tab, jenis, search)
       .then((res) => {
         if (ignore) return;
         setRows(res.data);
@@ -217,7 +222,7 @@ export default function PenangananPage() {
       .catch((err) => { if (!ignore) setError(getErrorMessage(err)); })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
-  }, [page, tab, jenis, search, reloadKey]);
+  }, [page, perPage, tab, jenis, search, reloadKey]);
 
   // kolom: sebagian dipakai bersama, sisanya beda per tab
   const fotoCol: Column<Penanganan> = {
@@ -343,7 +348,7 @@ export default function PenangananPage() {
           loading={loading}
           minWidth={minWidthByTab[tab]}
           emptyText={error || emptyByTab[tab]}
-          pagination={{ page, pageCount, onPageChange: setPage }}
+          pagination={{ page, pageCount, onPageChange: setPage, perPage, onPerPageChange: handlePerPageChange }}
         />
       </div>
 

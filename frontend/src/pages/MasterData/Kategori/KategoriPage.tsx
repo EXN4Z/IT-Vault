@@ -5,15 +5,13 @@ import SearchField from '../../../components/ui/SearchField';
 import Modal from '../../../components/modal/Modal';
 import ImportModal from '../../../components/modal/ImportModal';
 import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
-import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
+import { btnCreate, btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
 import { kategoriService } from '../../../services/kategoriService';
 import { transferService } from '../../../services/transferService';
 import { getErrorList, getErrorMessage } from '../../../lib/errors';
 import { saveBlob } from '../../../lib/downloadExport';
 import type { Kategori } from '../../../types/kategori';
 import KategoriFormModal from './KategoriFormModal';
-
-const PER_PAGE = 10;
 
 // kolom yang bisa dipilih di modal export (nanti harus sama dengan COLUMNS di export backend)
 const EXPORT_COLUMNS: ExportColumn[] = [
@@ -26,6 +24,7 @@ export default function KategoriPage() {
   const [query, setQuery] = useState(''); // isi kolom cari (langsung)
   const [search, setSearch] = useState(''); // isi kolom cari yang dikirim ke server (ditunda)
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [rows, setRows] = useState<Kategori[]>([]);
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
@@ -54,6 +53,11 @@ export default function KategoriPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const handlePerPageChange = (next: number) => {
+    setPerPage(next);
+    setPage(1);
+  };
+
   // tunda pencarian 300ms setelah berhenti mengetik
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -69,7 +73,7 @@ export default function KategoriPage() {
     setLoading(true);
     setError('');
     kategoriService
-      .list(page, PER_PAGE, search)
+      .list(page, perPage, search)
       .then((res) => {
         if (ignore) return;
         setRows(res.data);
@@ -79,7 +83,7 @@ export default function KategoriPage() {
       .catch((err) => { if (!ignore) setError(getErrorMessage(err)); })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
-  }, [page, search, reloadKey]);
+  }, [page, perPage, search, reloadKey]);
 
   const openCreate = () => {
     setEditing(null);
@@ -111,7 +115,7 @@ export default function KategoriPage() {
         columns: opts.columns,
         search: opts.scope === 'all' ? undefined : search || undefined,
         page: opts.scope === 'page' ? page : undefined,
-        per_page: opts.scope === 'page' ? PER_PAGE : undefined,
+        per_page: opts.scope === 'page' ? perPage : undefined,
       });
       saveBlob(blob, `kategori-${new Date().toLocaleDateString('sv-SE')}.${opts.format}`);
       setExportOpen(false);
@@ -215,7 +219,7 @@ export default function KategoriPage() {
           rowKey={(d) => d.id}
           loading={loading}
           emptyText={error || 'Belum ada kategori.'}
-          pagination={{ page, pageCount, onPageChange: setPage }}
+          pagination={{ page, pageCount, onPageChange: setPage, perPage, onPerPageChange: handlePerPageChange }}
         />
       </div>
 

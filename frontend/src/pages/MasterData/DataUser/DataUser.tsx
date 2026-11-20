@@ -6,7 +6,7 @@ import Badge from '../../../components/ui/Badge';
 import SearchField from '../../../components/ui/SearchField';
 import SegmentedTabs from '../../../components/ui/SegmentedTabs';
 import Modal from '../../../components/modal/Modal';
-import { btnCreate, btnDanger, btnOutline, } from '../../../components/ui/buttonStyles';
+import { btnCreate, btnDanger, btnOutline } from '../../../components/ui/buttonStyles';
 import { userService, type UserImportResult } from '../../../services/userService';
 import { getErrorMessage } from '../../../lib/errors';
 import { saveBlob } from '../../../lib/downloadExport';
@@ -14,9 +14,6 @@ import type { UserRow } from '../../../types/user';
 import DataUserFormModal from './DataUserFormModal';
 import ImportModal from '../../../components/modal/ImportModal';
 import ExportModal, { type ExportColumn, type ExportOptions } from '../../../components/modal/ExportModal';
-
-
-const PER_PAGE = 10;
 
 // kolom yang bisa dipilih di modal export (key = COLUMNS di UserExport.php)
 const EXPORT_COLUMNS: ExportColumn[] = [
@@ -47,6 +44,7 @@ export default function UsersPage() {
   const [query, setQuery] = useState(''); // isi kolom cari (langsung)
   const [search, setSearch] = useState(''); // isi kolom cari yang dikirim ke server (ditunda)
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [rows, setRows] = useState<UserRow[]>([]);
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
@@ -89,6 +87,11 @@ export default function UsersPage() {
     setPage(1);
   };
 
+  const handlePerPageChange = (next: number) => {
+    setPerPage(next);
+    setPage(1);
+  };
+
   const handleExport = async (opts: ExportOptions) => {
     setExporting(true);
     setExportError('');
@@ -101,7 +104,7 @@ export default function UsersPage() {
         role: opts.scope === 'all' || tab === 'semua' ? undefined : tab,
         search: opts.scope === 'all' ? undefined : search || undefined,
         page: opts.scope === 'page' ? page : undefined,
-        per_page: opts.scope === 'page' ? PER_PAGE : undefined,
+        per_page: opts.scope === 'page' ? perPage : undefined,
       });
       saveBlob(blob, `user-${new Date().toLocaleDateString('sv-SE')}.${opts.format}`);
       setExportOpen(false);
@@ -155,7 +158,7 @@ export default function UsersPage() {
     setRows([]);
     setTotal(0);
     userService
-      .list(page, PER_PAGE, tab === 'semua' ? undefined : tab, search)
+      .list(page, perPage, tab === 'semua' ? undefined : tab, search)
       .then((res) => {
         if (ignore) return;
         setRows(res.data);
@@ -165,7 +168,7 @@ export default function UsersPage() {
       .catch((err) => { if (!ignore) setError(getErrorMessage(err)); })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
-  }, [page, tab, search, reloadKey]);
+  }, [page, perPage, tab, search, reloadKey]);
 
   const openCreate = () => {
     setEditing(null);
@@ -277,7 +280,7 @@ export default function UsersPage() {
         <SearchField
           value={query}
           onChange={setQuery}
-          placeholder="Cari nama, email, atau NIK user..."
+          placeholder="Cari nama, email, NIK, role, atau status user..."
         />
 
         {/* counter data */}
@@ -297,7 +300,7 @@ export default function UsersPage() {
           rowKey={(u) => u.id}
           loading={loading}
           emptyText={error || 'Belum ada user.'}
-          pagination={{ page, pageCount, onPageChange: setPage }}
+          pagination={{ page, pageCount, onPageChange: setPage, perPage, onPerPageChange: handlePerPageChange }}
         />
       </div>
 

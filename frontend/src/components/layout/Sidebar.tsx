@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BellRing, ChevronDown, LogOut, Vault } from 'lucide-react';
+import { Bell, BellRing, ChevronDown, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isChildActive, isItemActive, navItems, type NavItem } from './navigation';
 import { disablePush, enablePush, getPushSubscription, isPushSupported } from '../../lib/push';
@@ -85,13 +85,16 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
     closeMobile();
   };
 
-  // klik ikon di rail: dropdown -> buka panel + grupnya, menu biasa -> pindah halaman
+  // klik ikon di rail: jika punya path langsung navigasi; jika dropdown tanpa path buka panel & grupnya (atau langsung ke anak pertama)
   const handleRailClick = (item: NavItem) => {
-    if (item.children) {
+    if (item.path) {
+      goTo(item.path);
+      return;
+    }
+    if (item.children?.length) {
       openPanel();
       setDropdownOverrides((prev) => ({ ...prev, [item.label]: true }));
-    } else if (item.path) {
-      goTo(item.path);
+      goTo(item.children[0].path);
     }
   };
 
@@ -152,11 +155,6 @@ export default function Sidebar({ panelOpen, mobileOpen, closeMobile, openPanel 
           aria-label="Menu cepat"
           className="flex w-12 shrink-0 flex-col items-center gap-1.5 border-r border-line bg-rail py-3 text-ink-muted"
         >
-          {/* logo */}
-          <div className="mb-2 grid size-8 place-items-center rounded-lg bg-ink text-canvas">
-            <Vault size={16} />
-          </div>
-
           {/* menu utama */}
           {menuItems.map(renderRailButton)}
 

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ImageOff, Loader2, Package, Printer, Undo2, Wrench } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageOff, Loader2, Package, Printer, TriangleAlert, Undo2, Wrench } from 'lucide-react';
 import ImageZoomModal from '../../components/modal/ImageZoomModal';
 import Badge from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/DataTable';
+import { useAuth } from '../../context/AuthContext';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
 import { getErrorMessage } from '../../lib/errors';
 import { openReceiptWindow, writeReceipt } from '../../lib/receipt';
@@ -69,6 +70,8 @@ function Spec({ name, value }: { name: string; value: string | null }) {
 
 // dashboard user: ringkasan ringkas, daftar barang dalam tampilan kartu, dan laporan kerusakan berjalan
 export default function UserDashboardPage() {
+  const { user } = useAuth();
+  const nonaktif = user?.status === 'nonaktif'; // akun dinonaktifkan admin
   const [items, setItems] = useState<MyInventory[]>();
   const [kartuPage, setKartuPage] = useState(1);
   const [laporanPage, setLaporanPage] = useState(1);
@@ -211,6 +214,17 @@ export default function UserDashboardPage() {
               <p className="mt-3 text-sm font-medium">Belum ada inventory</p>
               <p className="mt-1 text-xs text-ink-muted">Barang yang diserahkan tim IT ke kamu akan tampil di sini.</p>
             </section>
+          )}
+
+          {/* ===== peringatan: akun nonaktif ===== */}
+          {nonaktif && (
+            <div role="alert" className="flex items-start gap-3 rounded-sm border border-danger/40 bg-danger-bg px-4 py-3 text-danger">
+              <TriangleAlert size={18} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Akun anda nonaktif</p>
+                <p className="mt-0.5 text-xs">Mohon minta admin untuk mengaktifkan akun anda.</p>
+              </div>
+            </div>
           )}
 
           {items && items.length > 0 && (

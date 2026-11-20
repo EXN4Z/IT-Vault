@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { LogOut, Moon, Sun, Vault } from 'lucide-react';
+import { LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -21,9 +21,6 @@ export default function UserLayout() {
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-line bg-canvas px-3">
         {/* brand */}
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-ink text-canvas">
-            <Vault size={16} />
-          </div>
           <div className="min-w-0 leading-tight">
             <p className="truncate text-sm font-bold">Marimas IT Vault</p>
             <p className="hidden truncate text-xs text-ink-muted sm:block">Inventory saya</p>
