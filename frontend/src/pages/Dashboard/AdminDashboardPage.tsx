@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ImageOff, Inbox, MonitorCog } from 'lucide-react';
+import { ImageOff, Inbox } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
 import { getErrorMessage } from '../../lib/errors';
@@ -9,6 +9,7 @@ import { inventoryService } from '../../services/inventoryService';
 import { penangananService } from '../../services/penangananService';
 import { INVENTORY_STATUSES, type InventoryRow, type InventoryStatus } from '../../types/inventory';
 import type { Penanganan } from '../../types/penanganan';
+import { AngkaBone, ChartHeaderSkeleton, ChartSkeleton, MenungguRowsSkeleton, NotifikasiSkeleton, TerbaruSkeleton } from './AdminDashboardSkeleton';
 import NotificationPanel from './NotificationPanel';
 
 const BATAS_HARI = 7; // sama dengan halaman Penanganan: laporan belum diterima lebih dari ini = terlambat
@@ -246,7 +247,6 @@ async function loadDashboard(): Promise<DashboardData> {
 const card = 'rounded-sm border border-line bg-surface p-5';
 const label = 'text-xs text-ink-muted';
 const caption = 'text-[11px] font-medium uppercase tracking-wide text-ink-muted';
-const num = (v: number | undefined) => (v === undefined ? '-' : v.toLocaleString('id-ID'));
 
 // satu baris "label ........ nilai" (seperti rincian di kartu Order pada desain)
 function Row({ name, children }: { name: string; children: ReactNode }) {
@@ -262,6 +262,11 @@ function Row({ name, children }: { name: string; children: ReactNode }) {
 export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData>();
   const [error, setError] = useState('');
+  const loading = !data && !error;
+
+  // angka kosong = masih dimuat -> balok skeleton; kalau request gagal tampil '-' (ukuran balok bisa disesuaikan dengan teksnya)
+  const num = (v: number | undefined, bone?: string) =>
+    v === undefined ? (loading ? <AngkaBone className={bone} /> : '-') : v.toLocaleString('id-ID');
 
   // lama menunggu ikut berjalan tanpa perlu muat ulang halaman
   const [now, setNow] = useState(() => new Date());
@@ -290,7 +295,7 @@ export default function AdminDashboardPage() {
   const selisih = bulanIni - bulanLalu;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4" aria-busy={loading}>
 
       {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
 
@@ -302,21 +307,20 @@ export default function AdminDashboardPage() {
               <h2 className="text-sm font-semibold">Pertumbuhan inventory</h2>
               <p className="mt-0.5 text-xs text-ink-muted">Penambahan unit dalam 6 bulan terakhir</p>
             </div>
-            {data && (
+            {data ? (
               <div className="text-right">
                 <p className="text-lg font-semibold tabular-nums leading-tight">{num(bulanIni)} Unit</p>
                 <p className={`text-[11px] font-medium ${selisih < 0 ? 'text-danger' : 'text-success'}`}>
                   {selisih > 0 ? `▲ +${selisih}` : selisih < 0 ? `▼ ${selisih}` : '0'} dari bulan lalu
                 </p>
               </div>
+            ) : (
+              loading && <ChartHeaderSkeleton />
             )}
           </div>
 
-          {!data && !error ? (
-            <div className="flex h-[190px] items-center justify-center gap-2 text-xs text-ink-muted">
-              <MonitorCog size={14} />
-              Memuat grafik...
-            </div>
+          {loading ? (
+            <ChartSkeleton />
           ) : tren.length === 0 ? (
             <div className="flex h-[190px] items-center justify-center text-xs text-ink-muted">Belum ada data inventory.</div>
           ) : (
@@ -325,7 +329,7 @@ export default function AdminDashboardPage() {
         </section>
 
         <div className="min-w-0">
-          <NotificationPanel />
+          <NotificationPanel skeleton={<NotifikasiSkeleton />} />
         </div>
       </div>
 
@@ -335,7 +339,7 @@ export default function AdminDashboardPage() {
         <div className="flex flex-col gap-4 lg:row-span-2">
           <section className={`${card} flex flex-1 flex-col`}>
             <p className={caption}>Total inventory</p>
-            <p className="mt-1.5 text-4xl font-semibold tabular-nums">{num(data?.total)}</p>
+            <p className="mt-1.5 text-4xl font-semibold tabular-nums">{num(data?.total, 'h-9 w-20')}</p>
 
             <p className={`${caption} mb-1 mt-6`}>Per status</p>
             <div className="divide-y divide-line/60">
@@ -371,6 +375,7 @@ export default function AdminDashboardPage() {
           {data && data.terbaru.length === 0 && (
             <p className="py-6 text-center text-xs text-ink-muted">Belum ada inventory.</p>
           )}
+          {loading && <TerbaruSkeleton />}
           <ul className="space-y-4">
             {(data?.terbaru ?? []).map((item) => {
               const st = INVENTORY_STATUSES.find((s) => s.key === item.status);
@@ -425,7 +430,7 @@ export default function AdminDashboardPage() {
               <p className="mt-0.5 text-xs text-ink-muted">Menunggu + sedang diperbaiki</p>
             </div>
             <p className="text-4xl font-light tabular-nums">
-              {data ? (data.jumlahMenunggu + data.diproses).toLocaleString('id-ID') : '-'}
+              {data ? (data.jumlahMenunggu + data.diproses).toLocaleString('id-ID') : num(undefined, 'h-9 w-14')}
             </p>
           </div>
         </section>
@@ -443,15 +448,15 @@ export default function AdminDashboardPage() {
             <div className="mt-4 grid grid-cols-3 gap-4">
               <div>
                 <p className={label}>Menunggu</p>
-                <p className="text-xl font-semibold tabular-nums">{num(data?.jumlahMenunggu)}</p>
+                <p className="text-xl font-semibold tabular-nums">{num(data?.jumlahMenunggu, 'h-6 w-8')}</p>
               </div>
               <div>
                 <p className={label}>Terlambat</p>
-                <p className="text-xl font-semibold tabular-nums">{num(data?.terlambat)}</p>
+                <p className="text-xl font-semibold tabular-nums">{num(data?.terlambat, 'h-6 w-8')}</p>
               </div>
               <div>
                 <p className={label}>Diproses</p>
-                <p className="text-xl font-semibold tabular-nums">{num(data?.diproses)}</p>
+                <p className="text-xl font-semibold tabular-nums">{num(data?.diproses, 'h-6 w-8')}</p>
               </div>
             </div>
           </div>
@@ -468,6 +473,7 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
+                {loading && <MenungguRowsSkeleton />}
                 {data?.menunggu.map((p) => {
                   const hari = hariSejak(p.tanggal_lapor, now);
                   return (
@@ -493,12 +499,6 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-center gap-2 py-8 text-xs text-ink-muted">
                 <Inbox size={14} />
                 Tidak ada laporan yang menunggu.
-              </div>
-            )}
-            {!data && !error && (
-              <div className="flex items-center justify-center gap-2 py-8 text-xs text-ink-muted">
-                <MonitorCog size={14} />
-                Memuat...
               </div>
             )}
           </div>

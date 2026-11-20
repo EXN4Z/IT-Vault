@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BellOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { disablePush, enablePush, getPushSubscription, isPushSupported } from '../../lib/push';
@@ -21,7 +21,8 @@ function timeAgo(iso: string) {
 }
 
 // kartu notifikasi di dashboard: toggle notifikasi push + daftar notifikasi dengan paginasi
-export default function NotificationPanel() {
+// `skeleton` = kerangka loading milik dashboard yang memakai panel ini (kalau kosong tampil teks "Memuat...")
+export default function NotificationPanel({ skeleton }: { skeleton?: ReactNode }) {
   const navigate = useNavigate();
   const [items, setItems] = useState<AppNotification[]>();
   const [unread, setUnread] = useState(0);
@@ -170,10 +171,17 @@ export default function NotificationPanel() {
 
       {/* daftar (tinggi minimal setara 3 item supaya paginasi tidak naik-turun) */}
       <div className="min-h-[112px] border-t border-line">
-        {!shown || shown.length === 0 ? (
+        {!shown ? (
+          (skeleton ?? (
+            <div className="flex h-[112px] flex-col items-center justify-center gap-2 px-4 text-center text-xs text-ink-muted">
+              <BellOff size={18} />
+              Memuat...
+            </div>
+          ))
+        ) : shown.length === 0 ? (
           <div className="flex h-[112px] flex-col items-center justify-center gap-2 px-4 text-center text-xs text-ink-muted">
             <BellOff size={18} />
-            {items ? 'Belum ada notifikasi masuk.' : 'Memuat...'}
+            Belum ada notifikasi masuk.
           </div>
         ) : (
           <ul className="divide-y divide-line/60">

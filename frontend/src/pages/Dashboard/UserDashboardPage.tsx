@@ -4,7 +4,6 @@ import ImageZoomModal from '../../components/modal/ImageZoomModal';
 import Badge from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/DataTable';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
-import { useAuth } from '../../context/AuthContext';
 import { getErrorMessage } from '../../lib/errors';
 import { openReceiptWindow, writeReceipt } from '../../lib/receipt';
 import { formatLama, lamaLalu, lamaSejak, tglJam, tglJamSama } from '../../lib/waktu';
@@ -15,6 +14,7 @@ import type { MyInventory, MyInventoryItem, MyPenanganan, RiwayatPerbaikan } fro
 import type { Paginated } from '../../types/user';
 import PenangananLaporModal from '../MasterData/Inventory/PenangananLaporModal';
 import NotificationPanel from './NotificationPanel';
+import { KartuSectionSkeleton, LaporanSectionSkeleton, NotifikasiSkeleton, RiwayatListSkeleton } from './UserDashboardSkeleton';
 import UserReturnModal from './UserReturnModal';
 
 // tombol ikon kecil (sama dengan halaman Inventory)
@@ -69,7 +69,6 @@ function Spec({ name, value }: { name: string; value: string | null }) {
 
 // dashboard user: ringkasan ringkas, daftar barang dalam tampilan kartu, dan laporan kerusakan berjalan
 export default function UserDashboardPage() {
-  const { user } = useAuth();
   const [items, setItems] = useState<MyInventory[]>();
   const [kartuPage, setKartuPage] = useState(1);
   const [laporanPage, setLaporanPage] = useState(1);
@@ -179,11 +178,6 @@ export default function UserDashboardPage() {
       );
     })
     .sort((a, b) => Number(a.status === 'selesai') - Number(b.status === 'selesai')); // yang berjalan di atas
-  const bermasalah = units.filter(({ item }) => item.status !== 'dipakai' && item.status !== 'tersedia').length;
-  // pemakaian terlama = serah terima paling awal (tanggal, lalu jam pencatatan)
-  const tertua = (items ?? [])
-    .filter((i) => i.tanggal_penerimaan)
-    .sort((a, b) => a.tanggal_penerimaan!.localeCompare(b.tanggal_penerimaan!) || (a.waktu_penerimaan ?? '').localeCompare(b.waktu_penerimaan ?? ''))[0];
 
   // kartu
   const kartuCount = Math.max(1, Math.ceil((items?.length ?? 0) / KARTU_PER_HALAMAN));
@@ -195,23 +189,9 @@ export default function UserDashboardPage() {
   const laporanCurrent = Math.min(laporanPage, laporanCount);
   const laporanRows = laporan.slice((laporanCurrent - 1) * LAPORAN_PER_HALAMAN, laporanCurrent * LAPORAN_PER_HALAMAN);
 
-  const stats = [
-    { label: 'Barang utama', value: String(items?.length ?? 0) },
-    { label: 'Total unit', value: String(units.length) },
-    { label: 'Perlu perhatian', value: String(bermasalah) },
-    { label: 'Pemakaian terlama', value: tertua ? lamaSejak(tertua.tanggal_penerimaan!, tertua.waktu_penerimaan, now) : '-' },
-  ];
-
   return (
     <div className="min-w-0 space-y-4">
       {/* ===== judul ===== */}
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold">Inventory saya</h1>
-          <p className="mt-0.5 truncate text-xs text-ink-muted">Halo, {user?.name}</p>
-        </div>
-      </div>
-
       {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
 
       {/* grid-cols-1 = minmax(0,1fr): kolom tidak bisa melebar melebihi layar di mobile */}
@@ -219,10 +199,10 @@ export default function UserDashboardPage() {
         {/* ===== kolom kiri ===== */}
         <div className="min-w-0 space-y-4 lg:col-span-2">
           {!items && !error && (
-            <div className="flex items-center justify-center gap-2 py-16 text-xs text-ink-muted">
-              <Loader2 size={14} className="animate-spin" />
-              Memuat...
-            </div>
+            <>
+              <KartuSectionSkeleton jumlah={KARTU_PER_HALAMAN} />
+              <LaporanSectionSkeleton jumlah={LAPORAN_PER_HALAMAN} />
+            </>
           )}
 
           {items && items.length === 0 && (
@@ -235,19 +215,13 @@ export default function UserDashboardPage() {
 
           {items && items.length > 0 && (
             <>
-              {/* ===== ringkasan: satu strip tipis ===== */}
-              <section className="grid grid-cols-2 divide-line rounded-sm border border-line bg-surface md:grid-cols-4 md:divide-x">
-                {stats.map((s) => (
-                  <div key={s.label} className="flex flex-col items-start px-4 py-2.5">
-                    <p className="text-[11px] text-ink-muted">{s.label}</p>
-                    <p className="text-base font-semibold tabular-nums leading-tight md:text-lg">{s.value}</p>
-                  </div>
-                ))}
-              </section>
-
-              {/* ===== tampilan kartu ===== */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* ===== tampilan kartu: dibungkus satu section (kartu + paginasi) ===== */}
+              <section className="rounded-sm border border-line bg-surface">
+                <div className="flex items-baseline justify-between gap-2 px-4 pb-2 pt-3.5">
+                  <h2 className="text-sm font-semibold">Barang yang kamu pakai</h2>
+                  <span className="shrink-0 text-xs text-ink-muted">{items.length} barang</span>
+                </div>
+                <div className="grid grid-cols-1 gap-4 border-t border-line p-4 md:grid-cols-2">
                   {kartuRows.map((item) => (
                     <article key={item.id} className="flex min-w-0 flex-col rounded-sm border border-line bg-surface">
                       {/* kepala: nama, kode, status */}
@@ -322,8 +296,8 @@ export default function UserDashboardPage() {
                         )}
                       </div>
 
-                      {/* aksi (flex-wrap: tombol turun ke baris baru kalau layar sempit) */}
-                      <footer className="flex flex-wrap items-center gap-2 border-t border-line p-3">
+                      {/* aksi (flex-wrap: tombol turun ke baris baru kalau layar sempit); footer selalu ada supaya kartu tetap terbungkus rapi */}
+                      <footer className="flex min-h-[57px] flex-wrap items-center gap-2 border-t border-line p-3">
                         {item.bisa_dikembalikan && (
                           <button type="button" className={btnSolid} onClick={() => openReturn(item)}>
                             <Undo2 size={14} />
@@ -336,27 +310,26 @@ export default function UserDashboardPage() {
                             Lapor kerusakan
                           </button>
                         )}
-                        {/* server hanya mengizinkan cetak ulang struk untuk barang yang sedang dipakai */}
-                        {item.bisa_dikembalikan && (
-                          <button
-                            type="button"
-                            title="Cetak struk"
-                            aria-label="Cetak struk"
-                            className={`${btnOutline} ml-auto w-8 px-0`}
-                            disabled={printing === item.id}
-                            onClick={() => printStruk(item)}
-                          >
-                            {printing === item.id ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-                          </button>
-                        )}
+                        {/* struk bukti peminjaman: tersedia selama barang masih di tangan user, apa pun kondisinya */}
+                        <button
+                          type="button"
+                          title="Buka struk bukti peminjaman"
+                          aria-label={`Buka struk peminjaman ${item.kode_inventory}`}
+                          className={`${btnOutline} ml-auto`}
+                          disabled={printing === item.id}
+                          onClick={() => printStruk(item)}
+                        >
+                          {printing === item.id ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+                          Struk
+                        </button>
                       </footer>
                     </article>
                   ))}
                 </div>
-                <div className="flex justify-end">
+                <div className="flex justify-end border-t border-line px-4 py-3">
                   <Pagination page={kartuCurrent} pageCount={kartuCount} onPageChange={setKartuPage} />
                 </div>
-              </div>
+              </section>
                 {/* ===== laporan kerusakan berjalan (tetap tampil walau kosong) ===== */}
                 <section className="rounded-sm border border-line bg-surface">
                   <h2 className="px-4 pb-2 pt-3.5 text-sm font-semibold">Laporan kerusakan</h2>
@@ -418,7 +391,7 @@ export default function UserDashboardPage() {
 
         {/* ===== kolom kanan: notifikasi, kondisi unit ===== */}
         <aside className="min-w-0 space-y-4">
-          <NotificationPanel />
+          <NotificationPanel skeleton={<NotifikasiSkeleton />} />
 
           {/* ===== riwayat perbaikan barang user (3 per halaman, sisanya lewat paginasi) ===== */}
           <section className="rounded-sm border border-line bg-surface p-3 ">
@@ -429,12 +402,7 @@ export default function UserDashboardPage() {
 
             {riwayatError && <p className="mt-3 rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{riwayatError}</p>}
 
-            {!riwayat && !riwayatError && (
-              <div className="flex items-center justify-center gap-2 py-8 text-xs text-ink-muted">
-                <Loader2 size={14} className="animate-spin" />
-                Memuat...
-              </div>
-            )}
+            {!riwayat && !riwayatError && <RiwayatListSkeleton jumlah={RIWAYAT_PER_HALAMAN} />}
 
             {riwayat && riwayat.data.length === 0 && (
               <p className="py-6 text-center text-xs text-ink-muted">Belum ada riwayat perbaikan.</p>
