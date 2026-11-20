@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BellOff } from 'lucide-react';
+import { BellOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { disablePush, enablePush, getPushSubscription, isPushSupported } from '../../lib/push';
 import { notificationService, type AppNotification } from '../../services/notificationService';
+import { useAuth } from '../../context/AuthContext';
 
 const POLL_MS = 15000;
-const PREVIEW = 6; // jumlah notifikasi yang tampil sebelum "Tampilkan semua"
+const PER_HALAMAN = 2; // jumlah notifikasi per halaman
+
+const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60';
 
 function timeAgo(iso: string) {
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
@@ -17,13 +20,17 @@ function timeAgo(iso: string) {
   return `${Math.floor(jam / 24)} hari lalu`;
 }
 
-// kartu notifikasi di dashboard user: toggle notifikasi push + daftar notifikasi (pengganti ikon di top bar)
+// kartu notifikasi di dashboard: toggle notifikasi push + daftar notifikasi dengan paginasi
 export default function NotificationPanel() {
   const navigate = useNavigate();
   const [items, setItems] = useState<AppNotification[]>();
   const [unread, setUnread] = useState(0);
-  const [showAll, setShowAll] = useState(false);
+  const [page, setPage] = useState(1);
   const [, setTick] = useState(0); // paksa render ulang supaya "x menit lalu" ikut berjalan
+
+// ngambil role admin if admin = notif hide
+  const { user } = useAuth();
+  const isAdmin = user?.role?.nama?.toLowerCase() === 'admin';
 
   // ===== notifikasi push (sama seperti toggle yang dulu di top bar) =====
   const pushSupported = isPushSupported();
@@ -108,10 +115,13 @@ export default function NotificationPanel() {
     notificationService.markAllRead().catch(() => load());
   };
 
-  const shown = showAll ? items : items?.slice(0, PREVIEW);
+  // ===== paginasi =====
+  const pageCount = Math.max(1, Math.ceil((items?.length ?? 0) / PER_HALAMAN));
+  const currentPage = Math.min(page, pageCount);
+  const shown = items?.slice((currentPage - 1) * PER_HALAMAN, currentPage * PER_HALAMAN);
 
   return (
-    <section className="rounded-xl border border-line bg-surface">
+    <section className="rounded-sm border border-line bg-surface">
       {/* kepala */}
       <div className="flex items-center justify-between gap-2 px-4 pb-2.5 pt-3.5">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -130,7 +140,8 @@ export default function NotificationPanel() {
       </div>
 
       {/* toggle push */}
-      <div className="flex items-center justify-between gap-3 border-y border-line bg-hover/40 px-4 py-2.5">
+      {!isAdmin && (
+      <div className="flex items-center justify-between gap-3 border-t border-line bg-hover/40 px-4 py-2.5">
         <div className="min-w-0">
           <p className="text-xs font-medium">Notifikasi push</p>
           <p className="truncate text-[11px] text-ink-muted">
@@ -155,42 +166,60 @@ export default function NotificationPanel() {
           />
         </button>
       </div>
-
-      {/* daftar */}
-      {!shown || shown.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-xs text-ink-muted">
-          <BellOff size={18} />
-          {items ? 'Belum ada notifikasi masuk.' : 'Memuat...'}
-        </div>
-      ) : (
-        <ul className="divide-y divide-line/60">
-          {shown.map((n) => (
-            <li key={n.id}>
-              <button
-                type="button"
-                onClick={() => handleClick(n)}
-                className={`flex w-full cursor-pointer gap-2.5 px-4 py-2.5 text-left transition hover:bg-hover ${n.read_at ? '' : 'bg-selected/60'}`}
-              >
-                <span className={`mt-1.5 size-2 shrink-0 rounded-full ${n.read_at ? 'bg-transparent' : 'bg-accent'}`} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-xs ${n.read_at ? 'text-ink-soft' : 'font-medium text-ink'}`}>{n.message}</span>
-                  <span className="block text-[11px] text-ink-muted">{timeAgo(n.created_at)}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
 
-      {items && items.length > PREVIEW && (
+      {/* daftar (tinggi minimal setara 3 item supaya paginasi tidak naik-turun) */}
+      <div className="min-h-[112px] border-t border-line">
+        {!shown || shown.length === 0 ? (
+          <div className="flex h-[112px] flex-col items-center justify-center gap-2 px-4 text-center text-xs text-ink-muted">
+            <BellOff size={18} />
+            {items ? 'Belum ada notifikasi masuk.' : 'Memuat...'}
+          </div>
+        ) : (
+          <ul className="divide-y divide-line/60">
+            {shown.map((n) => (
+              <li key={n.id}>
+                <button
+                  type="button"
+                  onClick={() => handleClick(n)}
+                  className={`flex w-full cursor-pointer gap-2.5 px-4 py-2.5 text-left transition hover:bg-hover ${n.read_at ? '' : 'bg-selected/50 dark:bg-white/[0.04]'}`}
+                >
+                  <span className={`mt-1.5 size-2 shrink-0 rounded-full ${n.read_at ? 'bg-transparent' : 'bg-accent'}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-xs ${n.read_at ? 'text-ink-soft' : 'font-medium text-ink'}`}>{n.message}</span>
+                    <span className="block text-[11px] text-ink-muted">{timeAgo(n.created_at)}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* paginasi selalu tampil di posisi bawah yang tetap */}
+      <div className="flex items-center justify-between border-t border-line px-3 py-2">
         <button
           type="button"
-          onClick={() => setShowAll((v) => !v)}
-          className="w-full cursor-pointer border-t border-line py-2.5 text-xs font-medium text-ink-muted transition hover:text-ink"
+          aria-label="Halaman sebelumnya"
+          className={iconBtn}
+          disabled={currentPage <= 1}
+          onClick={() => setPage(currentPage - 1)}
         >
-          {showAll ? 'Tampilkan lebih sedikit' : `Tampilkan semua (${items.length})`}
+          <ChevronLeft size={14} />
         </button>
-      )}
+        <span className="text-[11px] tabular-nums text-ink-muted">
+          Halaman {currentPage} / {pageCount}
+        </span>
+        <button
+          type="button"
+          aria-label="Halaman berikutnya"
+          className={iconBtn}
+          disabled={currentPage >= pageCount}
+          onClick={() => setPage(currentPage + 1)}
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
     </section>
   );
 }
