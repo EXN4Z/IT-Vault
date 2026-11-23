@@ -470,13 +470,9 @@ export default function InventoryPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-soft">Kelola data inventory perangkat IT dan statusnya.</p>
-        <div className="flex items-center gap-2">
-          <button type="button" className={btnOutline} onClick={openImport}>
-            <Upload size={14} />Import
-          </button>
-          <button type="button" className={btnOutline} onClick={openExport}>
-            <Download size={14} />Export
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={btnOutline} onClick={openExport}><Download size={14} />Export Excel</button>
+          <button type="button" className={btnOutline} onClick={openImport}><Upload size={14} />Import Excel</button>
           <button type="button" className={btnCreate} onClick={openCreate}>
             <Plus size={14} />Tambah Inventory
           </button>

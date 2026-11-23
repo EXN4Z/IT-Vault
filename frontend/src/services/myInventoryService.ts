@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import type { MyInventory, MyKembalikanPayload, RiwayatPerbaikan } from '../types/myInventory';
+import type { MyInventory, RiwayatPerbaikan } from '../types/myInventory';
 import type { Paginated } from '../types/user';
 import type { PengembalianReceipt } from '../types/peminjaman';
 
@@ -19,8 +19,9 @@ export const myInventoryService = {
   },
 
   // POST /inventory/{id}/kembalikan (route yang sama dengan admin; server membatasi user ke barangnya sendiri)
-  async kembalikan(inventoryId: number, payload: MyKembalikanPayload): Promise<PengembalianReceipt> {
-    const { data } = await api.post<PengembalianReceipt>(`/inventory/${inventoryId}/kembalikan`, payload);
+  // multipart karena ada 3 foto kondisi barang
+  async kembalikan(inventoryId: number, form: FormData): Promise<PengembalianReceipt> {
+    const { data } = await api.post<PengembalianReceipt>(`/inventory/${inventoryId}/kembalikan`, form);
     return data;
   },
 };

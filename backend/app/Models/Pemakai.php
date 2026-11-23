@@ -15,7 +15,7 @@ class Pemakai extends Model
     protected $fillable = [
         'inventory_id', 'user_id', 'nomor_penerimaan', 'tanggal_penerimaan',
         'catatan', 'foto', 'created_by', 'nomor_pengembalian',
-        'tanggal_pengembalian', 'waktu_pengembalian', 'kondisi_kembali', 'catatan_kembali', 'dikembalikan_oleh',
+        'tanggal_pengembalian', 'waktu_pengembalian', 'kondisi_kembali', 'catatan_kembali', 'foto_kembali', 'dikembalikan_oleh',
     ];
 
     protected $casts = [
@@ -23,6 +23,7 @@ class Pemakai extends Model
         'tanggal_pengembalian' => 'date:Y-m-d',
         'waktu_pengembalian' => 'datetime',
         'foto' => 'array',
+        'foto_kembali' => 'array',
     ];
 
     public function inventory(): BelongsTo

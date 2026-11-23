@@ -206,13 +206,9 @@ export default function CabangPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-soft">Kelola data cabang.</p>
-        <div className="flex items-center gap-2">
-          <button type="button" className={btnOutline} onClick={() => { setImportError(''); setImportDetails([]); setImportOpen(true); }}>
-            <Upload size={14} />Import
-          </button>
-          <button type="button" className={btnOutline} onClick={() => { setExportError(''); setExportOpen(true); }}>
-            <Download size={14} />Export
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={btnOutline} onClick={() => { setExportError(''); setExportOpen(true); }}><Download size={14} />Export Excel</button>
+          <button type="button" className={btnOutline} onClick={() => { setImportError(''); setImportDetails([]); setImportOpen(true); }}><Upload size={14} />Import Excel</button>
           <button type="button" className={btnCreate} onClick={openCreate}>
             <Plus size={14} />Tambah Cabang
           </button>
@@ -253,6 +249,7 @@ export default function CabangPage() {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         title="Import cabang"
+        description="Unggah file Excel/CSV data cabang."
         requiredColumns={['Nama']}
         onSubmit={handleImport}
         loading={importing}

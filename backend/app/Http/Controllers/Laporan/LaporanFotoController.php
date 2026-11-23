@@ -67,7 +67,56 @@ class LaporanFotoController extends Controller
             }
         }
 
-        // 2. Ambil foto dari transaksi Penanganan Kerusakan
+        // 2. Ambil foto kondisi barang dari transaksi Pemakai (Pengembalian)
+        if ($jenis === '' || $jenis === 'semua' || $jenis === 'pengembalian') {
+            $pengembalianQuery = Pemakai::with([
+                'inventory:id,kode_inventory,nama,merk,type,warna',
+                'user:id,name,nik',
+            ])
+                ->whereNotNull('foto_kembali')
+                ->whereNotNull('tanggal_pengembalian')
+                ->when($search !== '', function ($q) use ($search) {
+                    $like = '%'.$search.'%';
+                    $q->where(fn ($w) => $w
+                        ->whereRaw('LOWER(nomor_penerimaan) LIKE ?', [$like])
+                        ->orWhereHas('inventory', fn ($i) => $i
+                            ->whereRaw('LOWER(kode_inventory) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(nama) LIKE ?', [$like]))
+                        ->orWhereHas('user', fn ($u) => $u->whereRaw('LOWER(name) LIKE ?', [$like]))
+                    );
+                })
+                ->latest('id')
+                ->get();
+
+            foreach ($pengembalianQuery as $p) {
+                $fotos = is_array($p->foto_kembali) ? array_values(array_filter($p->foto_kembali)) : [];
+                if (count($fotos) === 0) {
+                    continue;
+                }
+
+                $items->push([
+                    'id' => 'kembali-'.$p->id,
+                    'jenis' => 'pengembalian',
+                    'jenis_label' => 'Pengembalian',
+                    'referensi' => $p->nomor_penerimaan,
+                    'tanggal' => $p->tanggal_pengembalian?->format('Y-m-d'),
+                    'waktu' => $p->waktu_pengembalian?->toIso8601String(),
+                    'sort_at' => $p->waktu_pengembalian?->timestamp ?? $p->updated_at?->timestamp ?? 0,
+                    'pelaku' => $p->user?->name ?? '-',
+                    'keterangan' => $p->catatan_kembali,
+                    'inventory' => $p->inventory ? [
+                        'id' => $p->inventory->id,
+                        'kode_inventory' => $p->inventory->kode_inventory,
+                        'nama' => $p->inventory->nama,
+                        'merk' => $p->inventory->merk,
+                        'type' => $p->inventory->type,
+                    ] : null,
+                    'foto_urls' => array_map(fn ($path) => Storage::disk('public')->url($path), $fotos),
+                ]);
+            }
+        }
+
+        // 3. Ambil foto dari transaksi Penanganan Kerusakan
         if ($jenis === '' || $jenis === 'semua' || $jenis === 'rusak') {
             $penangananQuery = Penanganan::with([
                 'inventory:id,kode_inventory,nama,merk,type,warna',

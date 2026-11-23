@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ImageOff, Inbox } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
@@ -36,7 +36,7 @@ interface DashboardData {
 }
 
 // ===== KOMPONEN CHART DARI KODE LAMA =====
-const W = 720;
+const W_DEFAULT = 720; // lebar awal sebelum kartu diukur; setelah itu mengikuti lebar kartu (teks tetap terbaca di HP)
 const H = 190;
 const PAD_L = 44;
 const PAD_R = 16;
@@ -73,6 +73,20 @@ function smooth(p: [number, number][]): string {
 function PertumbuhanChart({ rows, judulChart = 'Pertumbuhan inventory per bulan' }: { rows: PembelianTitik[]; judulChart?: string }) {
   const last = rows.length - 1;
   const [hover, setHover] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(W_DEFAULT);
+
+  // ukur lebar kartu, lalu pakai sebagai lebar viewBox supaya skala 1:1 (tidak mengecil di layar sempit)
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ukur = () => setW(Math.max(Math.round(el.clientWidth), 260));
+    ukur();
+    const ro = new ResizeObserver(ukur);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const active = hover !== null && hover <= last ? hover : last;
 
   if (rows.length === 0) return null;
@@ -113,75 +127,77 @@ function PertumbuhanChart({ rows, judulChart = 'Pertumbuhan inventory per bulan'
   };
 
   return (
-    <svg
-      className="h-auto w-full select-none overflow-visible"
-      viewBox={`0 0 ${W} ${H}`}
-      role="img"
-      aria-label={`${judulChart}. ${namaBulan}: ${vals[active]} unit.`}
-      onMouseMove={(e) => onMove(e.clientX, e.currentTarget)}
-      onMouseLeave={() => setHover(null)}
-      onTouchStart={(e) => onMove(e.touches[0].clientX, e.currentTarget)}
-      onTouchMove={(e) => onMove(e.touches[0].clientX, e.currentTarget)}
-    >
-      <defs>
-        <linearGradient id="chart-area-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" className="text-accent" stopOpacity={0.28} />
-          <stop offset="100%" stopColor="currentColor" className="text-accent" stopOpacity={0} />
-        </linearGradient>
-      </defs>
+    <div ref={wrapRef} className="w-full min-w-0">
+      <svg
+        className="block h-auto w-full select-none overflow-visible"
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`${judulChart}. ${namaBulan}: ${vals[active]} unit.`}
+        onMouseMove={(e) => onMove(e.clientX, e.currentTarget)}
+        onMouseLeave={() => setHover(null)}
+        onTouchStart={(e) => onMove(e.touches[0].clientX, e.currentTarget)}
+        onTouchMove={(e) => onMove(e.touches[0].clientX, e.currentTarget)}
+      >
+        <defs>
+          <linearGradient id="chart-area-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" className="text-accent" stopOpacity={0.28} />
+            <stop offset="100%" stopColor="currentColor" className="text-accent" stopOpacity={0} />
+          </linearGradient>
+        </defs>
 
-      {[0, 1, 2, 3].map((i) => {
-        const v = lo + i * step;
-        return (
-          <g key={v}>
-            <line x1={PAD_L - 14} x2={W - 4} y1={y(v)} y2={y(v)} className="stroke-line" />
-            <text x={0} y={y(v) + 3} fontSize={9} className="fill-ink-muted">
-              {v}
-            </text>
-          </g>
-        );
-      })}
+        {[0, 1, 2, 3].map((i) => {
+          const v = lo + i * step;
+          return (
+            <g key={v}>
+              <line x1={PAD_L - 14} x2={W - 4} y1={y(v)} y2={y(v)} className="stroke-line" />
+              <text x={0} y={y(v) + 3} fontSize={10} className="fill-ink-muted">
+                {v}
+              </text>
+            </g>
+          );
+        })}
 
-      <path d={area} fill="url(#chart-area-fill)" />
-      <path d={line} fill="none" strokeWidth={2.2} strokeLinecap="round" className="stroke-accent" />
+        <path d={area} fill="url(#chart-area-fill)" />
+        <path d={line} fill="none" strokeWidth={2.2} strokeLinecap="round" className="stroke-accent" />
 
-      {pts.map((pt, i) =>
-        i === active ? null : (
-          <circle key={i} cx={pt[0]} cy={pt[1]} r={3} strokeWidth={1.5} className="fill-surface stroke-accent" />
-        ),
-      )}
+        {pts.map((pt, i) =>
+          i === active ? null : (
+            <circle key={i} cx={pt[0]} cy={pt[1]} r={3} strokeWidth={1.5} className="fill-surface stroke-accent" />
+          ),
+        )}
 
-      <line x1={q[0]} x2={q[0]} y1={q[1] + 9} y2={Y_BASE} strokeDasharray="3 3" className="stroke-accent" />
-      <circle cx={q[0]} cy={q[1]} r={9} className="fill-accent/15" />
-      <circle cx={q[0]} cy={q[1]} r={5} strokeWidth={2} className="fill-accent stroke-surface" />
+        <line x1={q[0]} x2={q[0]} y1={q[1] + 9} y2={Y_BASE} strokeDasharray="3 3" className="stroke-accent" />
+        <circle cx={q[0]} cy={q[1]} r={9} className="fill-accent/15" />
+        <circle cx={q[0]} cy={q[1]} r={5} strokeWidth={2} className="fill-accent stroke-surface" />
 
-      {/* Tooltip */}
-      <rect x={bx} y={by} width={BW} height={52} rx={8} className="fill-ink" />
-      <polygon points={`${q[0] - 5},${by + 52} ${q[0] + 5},${by + 52} ${q[0]},${by + 58}`} className="fill-ink" />
-      <text x={bx + 12} y={by + 17} fontSize={9} className="fill-surface opacity-70">
-        {namaBulan}
-      </text>
-      <text x={bx + 12} y={by + 34} fontSize={14} fontWeight={700} className="fill-surface">
-        {vals[active]} Unit
-      </text>
-      <text x={bx + 12} y={by + 46} fontSize={9} className={deltaTurun ? 'fill-danger' : 'fill-success'}>
-        {deltaText}
-      </text>
-
-      {rows.map((r, i) => (
-        <text
-          key={r.label + i}
-          x={pts[i][0]}
-          y={H - 8}
-          textAnchor="middle"
-          fontSize={9}
-          fontWeight={i === active ? 700 : 400}
-          className={i === active ? 'fill-ink' : 'fill-ink-muted'}
-        >
-          {r.label}
+        {/* Tooltip */}
+        <rect x={bx} y={by} width={BW} height={52} rx={8} className="fill-ink" />
+        <polygon points={`${q[0] - 5},${by + 52} ${q[0] + 5},${by + 52} ${q[0]},${by + 58}`} className="fill-ink" />
+        <text x={bx + 12} y={by + 17} fontSize={9} className="fill-surface opacity-70">
+          {namaBulan}
         </text>
-      ))}
-    </svg>
+        <text x={bx + 12} y={by + 34} fontSize={14} fontWeight={700} className="fill-surface">
+          {vals[active]} Unit
+        </text>
+        <text x={bx + 12} y={by + 46} fontSize={9} className={deltaTurun ? 'fill-danger' : 'fill-success'}>
+          {deltaText}
+        </text>
+
+        {rows.map((r, i) => (
+          <text
+            key={r.label + i}
+            x={pts[i][0]}
+            y={H - 8}
+            textAnchor="middle"
+            fontSize={10}
+            fontWeight={i === active ? 700 : 400}
+            className={i === active ? 'fill-ink' : 'fill-ink-muted'}
+          >
+            {r.label}
+          </text>
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -244,7 +260,7 @@ async function loadDashboard(): Promise<DashboardData> {
   };
 }
 
-const card = 'rounded-sm border border-line bg-surface p-5';
+const card = 'min-w-0 rounded-sm border border-line bg-surface p-4 sm:p-5';
 const label = 'text-xs text-ink-muted';
 const caption = 'text-[11px] font-medium uppercase tracking-wide text-ink-muted';
 
@@ -300,22 +316,27 @@ export default function AdminDashboardPage() {
       {error && <p className="rounded-lg bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p>}
 
       {/* ===== BARIS ATAS: CHART (KIRI, 2 KOLOM) + NOTIFIKASI (KANAN, 1 KOLOM) ===== */}
-      <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch">
+      {/* grid-cols-1 = minmax(0,1fr): kolom tidak bisa melebar melebihi layar di HP */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
         <section className={`${card} flex flex-col justify-between lg:col-span-2`}>
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
             <div>
               <h2 className="text-sm font-semibold">Pertumbuhan inventory</h2>
               <p className="mt-0.5 text-xs text-ink-muted">Penambahan unit dalam 6 bulan terakhir</p>
             </div>
             {data ? (
-              <div className="text-right">
+              <div className="ml-auto text-right">
                 <p className="text-lg font-semibold tabular-nums leading-tight">{num(bulanIni)} Unit</p>
                 <p className={`text-[11px] font-medium ${selisih < 0 ? 'text-danger' : 'text-success'}`}>
                   {selisih > 0 ? `▲ +${selisih}` : selisih < 0 ? `▼ ${selisih}` : '0'} dari bulan lalu
                 </p>
               </div>
             ) : (
-              loading && <ChartHeaderSkeleton />
+              loading && (
+                <div className="ml-auto">
+                  <ChartHeaderSkeleton />
+                </div>
+              )
             )}
           </div>
 
@@ -334,9 +355,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ===== GRID UTAMA 3 KOLOM ===== */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* ===== kolom kiri: total inventory + pemakaian ===== */}
-        <div className="flex flex-col gap-4 lg:row-span-2">
+        <div className="flex min-w-0 flex-col gap-4 lg:row-span-2">
           <section className={`${card} flex flex-1 flex-col`}>
             <p className={caption}>Total inventory</p>
             <p className="mt-1.5 text-4xl font-semibold tabular-nums">{num(data?.total, 'h-9 w-20')}</p>
@@ -404,7 +425,11 @@ export default function AdminDashboardPage() {
                       {item.kategori ? ` · ${item.kategori.nama}` : ''}
                     </p>
                   </div>
-                  {st && <Badge dot={st.dot}>{st.label}</Badge>}
+                  {st && (
+                    <span className="shrink-0">
+                      <Badge dot={st.dot}>{st.label}</Badge>
+                    </span>
+                  )}
                 </li>
               );
             })}
@@ -437,7 +462,7 @@ export default function AdminDashboardPage() {
 
         {/* ===== bawah: tabel laporan menunggu (2 kolom, seperti "Destination") ===== */}
         <section className={`${card} p-0 lg:col-span-2`}>
-          <div className="p-5 pb-4">
+          <div className="p-4 pb-4 sm:p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Laporan menunggu diterima</h2>
               <Link to="/transaksi/penanganan" className="text-xs text-ink-muted transition hover:text-ink">
@@ -462,33 +487,44 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="overflow-x-auto border-t border-line">
-            <table className="w-full min-w-[600px] text-left text-xs">
-              <thead>
+            <table className="w-full text-left text-xs md:min-w-[600px]">
+              <thead className="hidden md:table-header-group">
                 <tr className="text-ink-muted">
-                  <th className="px-5 py-2.5 font-medium">Barang</th>
-                  <th className="px-3 py-2.5 font-medium">Jenis</th>
-                  <th className="px-3 py-2.5 font-medium">Pelapor</th>
-                  <th className="px-3 py-2.5 font-medium">Waktu lapor</th>
-                  <th className="px-5 py-2.5 text-right font-medium">Menunggu</th>
+                  <th className="px-4 py-2.5 font-medium sm:px-5">Barang</th>
+                  <th className="hidden px-3 py-2.5 font-medium md:table-cell">Jenis</th>
+                  <th className="hidden px-3 py-2.5 font-medium md:table-cell">Pelapor</th>
+                  <th className="hidden px-3 py-2.5 font-medium md:table-cell">Waktu lapor</th>
+                  <th className="hidden px-4 py-2.5 text-right font-medium sm:px-5 md:table-cell">Menunggu</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
                 {loading && <MenungguRowsSkeleton />}
                 {data?.menunggu.map((p) => {
                   const hari = hariSejak(p.tanggal_lapor, now);
+                  const lama = p.lapor_at ? formatLama(p.lapor_at, now) : lamaSejak(p.tanggal_lapor, null, now);
+                  const terlambat = hari > BATAS_HARI;
                   return (
                     <tr key={p.id}>
-                      <td className="px-5 py-2.5">
-                        <p className="font-medium text-ink">{p.inventory?.nama || p.inventory?.kode_inventory}</p>
+                      <td className="px-4 py-3 md:py-2.5 sm:px-5">
+                        <p className="break-words font-medium text-ink">{p.inventory?.nama || p.inventory?.kode_inventory}</p>
                         <p className="text-ink-muted">{p.inventory?.kode_inventory}</p>
+                        {/* HP: kolom Jenis / Pelapor / Waktu lapor disembunyikan, ringkasannya di sini */}
+                        <p className="mt-0.5 text-ink-soft md:hidden">
+                          {[p.jenis_label, p.pelapor].filter(Boolean).join(' · ')}
+                        </p>
+                        <p className="text-ink-muted md:hidden">{tglJam(p.tanggal_lapor, p.lapor_at)}</p>
+                        {/* HP: lama menunggu ditaruh di bawah (kolom kanan disembunyikan supaya teks tidak kepepet) */}
+                        <p className={`mt-1.5 font-medium md:hidden ${terlambat ? 'text-danger' : 'text-ink'}`}>
+                          Menunggu {lama}
+                        </p>
                       </td>
-                      <td className="px-3 py-2.5 text-ink-soft">{p.jenis_label}</td>
-                      <td className="px-3 py-2.5 text-ink-soft">{p.pelapor ?? '-'}</td>
-                      <td className="px-3 py-2.5 text-ink-soft">{tglJam(p.tanggal_lapor, p.lapor_at)}</td>
+                      <td className="hidden px-3 py-2.5 text-ink-soft md:table-cell">{p.jenis_label}</td>
+                      <td className="hidden px-3 py-2.5 text-ink-soft md:table-cell">{p.pelapor ?? '-'}</td>
+                      <td className="hidden px-3 py-2.5 text-ink-soft md:table-cell">{tglJam(p.tanggal_lapor, p.lapor_at)}</td>
                       <td
-                        className={`px-5 py-2.5 text-right tabular-nums ${hari > BATAS_HARI ? 'font-semibold text-danger' : 'text-ink-soft'}`}
+                        className={`hidden whitespace-nowrap px-4 py-2.5 text-right tabular-nums sm:px-5 md:table-cell ${terlambat ? 'font-semibold text-danger' : 'text-ink-soft'}`}
                       >
-                        {p.lapor_at ? formatLama(p.lapor_at, now) : lamaSejak(p.tanggal_lapor, null, now)}
+                        {lama}
                       </td>
                     </tr>
                   );

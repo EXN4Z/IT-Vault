@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import Modal from '../../components/modal/Modal';
-import { FormField, textareaClass } from '../../components/form';
+import { FormField, PhotoUploadField, textareaClass } from '../../components/form';
 import { btnOutline, btnSolid } from '../../components/ui/buttonStyles';
 import { myInventoryService } from '../../services/myInventoryService';
 import { getErrorMessage, getFieldErrors } from '../../lib/errors';
@@ -17,13 +17,17 @@ interface UserReturnModalProps {
   onSaved: () => void; // dipanggil begitu pengembalian tersimpan (untuk memuat ulang dashboard)
 }
 
-// modal "Kembalikan" versi user: tidak ada nomor penerimaan dan tanggal (otomatis hari ini), cukup konfirmasi + catatan.
+const PHOTO_COUNT = 3;
+
+// modal "Kembalikan" versi user: tidak ada nomor penerimaan dan tanggal (otomatis hari ini), cukup catatan + 3 foto kondisi barang.
 // Kelengkapan ikut dikembalikan. Setelah berhasil, struk pengembalian dibuka
 export default function UserReturnModal({ open, inventory, onClose, onSaved }: UserReturnModalProps) {
   const formId = useId();
   const [catatan, setCatatan] = useState('');
   const [error, setError] = useState('');
   const [catatanError, setCatatanError] = useState('');
+  const [files, setFiles] = useState<File[]>([]); // 3 foto kondisi barang saat dikembalikan
+  const [fotoError, setFotoError] = useState('');
   const [saving, setSaving] = useState(false);
   const [blockedReceipt, setBlockedReceipt] = useState<PengembalianReceipt | null>(null); // struk yang popup-nya diblokir browser
   const [prevOpen, setPrevOpen] = useState(false);
@@ -35,6 +39,8 @@ export default function UserReturnModal({ open, inventory, onClose, onSaved }: U
       setCatatan('');
       setError('');
       setCatatanError('');
+      setFiles([]);
+      setFotoError('');
       setBlockedReceipt(null);
     }
   }
@@ -43,16 +49,25 @@ export default function UserReturnModal({ open, inventory, onClose, onSaved }: U
     e.preventDefault();
     if (!inventory || saving) return;
 
+    // cek di browser dulu supaya pesannya langsung muncul
+    if (files.length !== PHOTO_COUNT) {
+      setFotoError(`Foto kondisi barang saat dikembalikan harus tepat ${PHOTO_COUNT} foto.`);
+      return;
+    }
+
     setSaving(true);
     setError('');
     setCatatanError('');
+    setFotoError('');
     // jendela struk dibuka sekarang (masih di dalam klik), kalau nanti dibuka setelah await diblokir browser
     const win = openReceiptWindow();
     try {
-      const receipt = await myInventoryService.kembalikan(inventory.id, {
-        tanggal_pengembalian: today(),
-        catatan: catatan.trim() || null,
-      });
+      const data = new FormData();
+      data.append('tanggal_pengembalian', today());
+      if (catatan.trim()) data.append('catatan', catatan.trim());
+      files.forEach((f) => data.append('foto[]', f));
+
+      const receipt = await myInventoryService.kembalikan(inventory.id, data);
       onSaved();
       if (win) {
         writePengembalianReceipt(win, receipt);
@@ -62,10 +77,15 @@ export default function UserReturnModal({ open, inventory, onClose, onSaved }: U
       }
     } catch (err) {
       win?.close();
-      const { inventory: inventoryError, catatan: fieldError, ...rest } = getFieldErrors(err);
+      const fieldErrors = getFieldErrors(err);
+      // error per foto (foto.0, foto.1, ...) dijadikan satu pesan di kotak foto
+      const fotoKey = Object.keys(fieldErrors).find((k) => k.startsWith('foto.'));
+      if (fotoKey && !fieldErrors.foto) fieldErrors.foto = fieldErrors[fotoKey];
+      const { inventory: inventoryError, catatan: fieldError, foto: fotoFieldError, ...rest } = fieldErrors;
       if (fieldError) setCatatanError(fieldError);
+      if (fotoFieldError) setFotoError(fotoFieldError);
       if (inventoryError) setError(inventoryError);
-      else if (!fieldError) setError(Object.values(rest)[0] ?? getErrorMessage(err));
+      else if (!fieldError && !fotoFieldError) setError(Object.values(rest)[0] ?? getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -130,6 +150,16 @@ export default function UserReturnModal({ open, inventory, onClose, onSaved }: U
               className={textareaClass}
             />
           </FormField>
+
+          <PhotoUploadField
+            label="Foto Kondisi Barang Saat Dikembalikan"
+            required
+            max={PHOTO_COUNT}
+            files={files}
+            onChange={(next) => { setFiles(next); setFotoError(''); }}
+            error={fotoError}
+            disabled={saving}
+          />
         </form>
       )}
     </Modal>

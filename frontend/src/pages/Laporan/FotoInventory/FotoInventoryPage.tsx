@@ -208,7 +208,7 @@ export default function FotoInventoryPage() {
             <ImageOff size={32} className="mb-2 text-ink-muted" />
             <p className="text-sm font-medium text-ink">Belum ada dokumentasi foto</p>
             <p className="mt-1 text-xs text-ink-muted">
-              Foto dari proses pemakaian dan laporan kerusakan akan otomatis tampil di sini.
+              Foto dari proses pemakaian, pengembalian, dan laporan kerusakan akan otomatis tampil di sini.
             </p>
           </div>
         ) : (

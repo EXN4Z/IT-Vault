@@ -274,13 +274,13 @@ export default function UserDashboardPage() {
                       </div>
 
                       {/* info pemakaian */}
-                      <div className="flex items-center justify-between gap-2 border-y border-line bg-hover/40 px-4 py-2 text-[11px] text-ink-muted">
-                        <span className="truncate">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 border-y border-line bg-hover/40 px-4 py-2 text-[11px] text-ink-muted">
+                        <span className="min-w-0">
                           Dipakai sejak{' '}
                           <span className="font-medium text-ink">{item.tanggal_penerimaan ? tglJamSama(item.tanggal_penerimaan, item.waktu_penerimaan) : '-'}</span>
                           {item.tanggal_penerimaan && ` (${lamaSejak(item.tanggal_penerimaan, item.waktu_penerimaan, now)})`}
                         </span>
-                        <span className="shrink-0 truncate">{item.nomor_penerimaan}</span>
+                        <span className="shrink-0">{item.nomor_penerimaan}</span>
                       </div>
 
                       {/* kelengkapan */}

@@ -24,7 +24,7 @@ export function ChartHeaderSkeleton() {
 export function ChartSkeleton() {
   const garis = [60, 93.3, 126.7, 160];
   return (
-    <svg role="status" aria-busy="true" aria-label="Memuat grafik" viewBox="0 0 720 190" className="h-auto w-full animate-pulse">
+    <svg role="status" aria-busy="true" aria-label="Memuat grafik" viewBox="0 0 720 190" preserveAspectRatio="none" className="h-[190px] w-full animate-pulse">
       {garis.map((y) => (
         <line key={y} x1={30} x2={716} y1={y} y2={y} className="stroke-line" />
       ))}
@@ -61,22 +61,22 @@ export function MenungguRowsSkeleton({ jumlah = 5 }: { jumlah?: number }) {
     <>
       {Array.from({ length: jumlah }, (_, i) => (
         <tr key={i} aria-hidden="true">
-          <td className="px-5 py-2.5">
+          <td className="px-4 py-2.5 sm:px-5">
             <div className="space-y-1">
               <Bone className="h-3.5 w-32" />
               <Bone className="h-3.5 w-20" />
             </div>
           </td>
-          <td className="px-3 py-2.5">
+          <td className="hidden px-3 py-2.5 md:table-cell">
             <Bone className="h-3.5 w-20" />
           </td>
-          <td className="px-3 py-2.5">
+          <td className="hidden px-3 py-2.5 md:table-cell">
             <Bone className="h-3.5 w-16" />
           </td>
-          <td className="px-3 py-2.5">
+          <td className="hidden px-3 py-2.5 md:table-cell">
             <Bone className="h-3.5 w-24" />
           </td>
-          <td className="px-5 py-2.5">
+          <td className="hidden px-4 py-2.5 sm:px-5 md:table-cell">
             <Bone className="ml-auto h-3.5 w-12" />
           </td>
         </tr>

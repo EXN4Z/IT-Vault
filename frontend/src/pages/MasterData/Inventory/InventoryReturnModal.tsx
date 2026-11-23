@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { CalendarDays, Hash, Loader2, MessageSquare } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
-import { DatePicker, FormField, inputClass, textareaClass } from '../../../components/form';
+import { DatePicker, FormField, PhotoUploadField, inputClass, textareaClass } from '../../../components/form';
 import { btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
 import { peminjamanService } from '../../../services/peminjamanService';
 import { getErrorMessage, getFieldErrors } from '../../../lib/errors';
@@ -28,13 +28,16 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+const PHOTO_COUNT = 3;
+
 const emptyForm = (): FormState => ({ nomor_penerimaan: '', tanggal_pengembalian: today(), catatan: '' });
 
-// modal "Kembalikan": isi nomor penerimaan (dari struk serah terima), tanggal, catatan; status tidak dipilih,
+// modal "Kembalikan": isi nomor penerimaan (dari struk serah terima), tanggal, catatan, 3 foto kondisi barang; status tidak dipilih,
 // server yang menentukan (barang yang dipinjam jadi tersedia, kelengkapan yang rusak / diperbaiki tetap). Setelah berhasil struk pengembalian dibuka
 export default function InventoryReturnModal({ open, inventory, onClose, onSaved }: InventoryReturnModalProps) {
   const formId = useId();
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [files, setFiles] = useState<File[]>([]); // 3 foto kondisi barang saat dikembalikan
   const [info, setInfo] = useState<SerahTerimaReceipt | null>(null); // peminjaman yang sedang berjalan + kelengkapannya sekarang
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -47,6 +50,7 @@ export default function InventoryReturnModal({ open, inventory, onClose, onSaved
     setPrevOpen(open);
     if (open) {
       setForm(emptyForm());
+      setFiles([]);
       setInfo(null); // dimuat ulang tiap dibuka
       setErrors({});
       setError('');
@@ -78,6 +82,7 @@ export default function InventoryReturnModal({ open, inventory, onClose, onSaved
     const found: Record<string, string> = {};
     if (!form.nomor_penerimaan.trim()) found.nomor_penerimaan = 'Nomor penerimaan wajib diisi.';
     if (!form.tanggal_pengembalian) found.tanggal_pengembalian = 'Tanggal pengembalian wajib diisi.';
+    if (files.length !== PHOTO_COUNT) found.foto = `Foto kondisi barang saat dikembalikan harus tepat ${PHOTO_COUNT} foto.`;
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
@@ -86,11 +91,13 @@ export default function InventoryReturnModal({ open, inventory, onClose, onSaved
     // jendela struk dibuka sekarang (masih di dalam klik), kalau nanti dibuka setelah await diblokir browser
     const win = openReceiptWindow();
     try {
-      const receipt = await peminjamanService.kembalikan(inventory.id, {
-        nomor_penerimaan: form.nomor_penerimaan.trim(),
-        tanggal_pengembalian: form.tanggal_pengembalian,
-        catatan: form.catatan.trim() || null,
-      });
+      const data = new FormData();
+      data.append('nomor_penerimaan', form.nomor_penerimaan.trim());
+      data.append('tanggal_pengembalian', form.tanggal_pengembalian);
+      if (form.catatan.trim()) data.append('catatan', form.catatan.trim());
+      files.forEach((f) => data.append('foto[]', f));
+
+      const receipt = await peminjamanService.kembalikan(inventory.id, data);
       onSaved();
       if (win) {
         writePengembalianReceipt(win, receipt);
@@ -100,7 +107,11 @@ export default function InventoryReturnModal({ open, inventory, onClose, onSaved
       }
     } catch (err) {
       win?.close();
-      const { inventory: inventoryError, ...rest } = getFieldErrors(err);
+      const fieldErrors = getFieldErrors(err);
+      // error per foto (foto.0, foto.1, ...) dijadikan satu pesan di kotak foto
+      const fotoKey = Object.keys(fieldErrors).find((k) => k.startsWith('foto.'));
+      if (fotoKey && !fieldErrors.foto) fieldErrors.foto = fieldErrors[fotoKey];
+      const { inventory: inventoryError, ...rest } = fieldErrors;
       if (inventoryError) setError(inventoryError);
       if (Object.keys(rest).length > 0) setErrors(rest);
       else if (!inventoryError) setError(getErrorMessage(err));
@@ -180,6 +191,16 @@ export default function InventoryReturnModal({ open, inventory, onClose, onSaved
               className={textareaClass}
             />
           </FormField>
+
+          <PhotoUploadField
+            label="Foto Kondisi Barang Saat Dikembalikan"
+            required
+            max={PHOTO_COUNT}
+            files={files}
+            onChange={(next) => { setFiles(next); setErrors((prev) => ({ ...prev, foto: '' })); }}
+            error={errors.foto}
+            disabled={saving}
+          />
         </form>
       )}
     </Modal>

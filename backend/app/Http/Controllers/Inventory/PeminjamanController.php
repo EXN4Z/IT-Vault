@@ -105,7 +105,7 @@ class PeminjamanController extends Controller
         return response()->json($this->strukPayload($this->peminjamanAktif($inventory), $inventory));
     }
 
-    // POST /inventory/{inventory}/kembalikan { nomor_penerimaan, tanggal_pengembalian, catatan }
+    // POST /inventory/{inventory}/kembalikan (multipart: nomor_penerimaan, tanggal_pengembalian, catatan, foto[3])
     // -> kembalikan barang utama beserta kelengkapannya. Mengembalikan data untuk struk pengembalian.
     // admin: wajib menyebut nomor penerimaan dari struk. user: hanya boleh mengembalikan barang yang sedang ia pakai
     public function kembalikan(KembalikanRequest $request, Inventory $inventory): JsonResponse
@@ -115,64 +115,78 @@ class PeminjamanController extends Controller
 
         $data = $request->validated();
 
-        $pemakai = DB::transaction(function () use ($request, $data, $inventory) {
-            // kunci barangnya lalu cek ulang, supaya dua admin tidak mengembalikan barang yang sama bersamaan
-            $locked = Inventory::lockForUpdate()->findOrFail($inventory->id);
-            $this->ensureSedangDipakai($locked, 'Hanya barang utama yang sedang dipakai yang bisa dikembalikan.');
+        $paths = [];
 
-            $pemakai = $this->peminjamanAktif($locked);
+        try {
+            $pemakai = DB::transaction(function () use ($request, $data, $inventory, &$paths) {
+                // kunci barangnya lalu cek ulang, supaya dua admin tidak mengembalikan barang yang sama bersamaan
+                $locked = Inventory::lockForUpdate()->findOrFail($inventory->id);
+                $this->ensureSedangDipakai($locked, 'Hanya barang utama yang sedang dipakai yang bisa dikembalikan.');
 
-            // kode pemakai harus cocok dengan yang tertera di struk serah terima (hanya diminta dari admin)
-            if ($this->isAdmin($request->user()) && strcasecmp(trim($data['nomor_penerimaan'] ?? ''), $pemakai->nomor_penerimaan) !== 0) {
-                throw ValidationException::withMessages([
-                    'nomor_penerimaan' => 'Nomor penerimaan tidak cocok dengan pemakai barang ini.',
-                ]);
-            }
+                $pemakai = $this->peminjamanAktif($locked);
 
-            if ($data['tanggal_pengembalian'] < $pemakai->tanggal_penerimaan->format('Y-m-d')) {
-                throw ValidationException::withMessages([
-                    'tanggal_pengembalian' => 'Tanggal pengembalian tidak boleh sebelum tanggal penerimaan.',
-                ]);
-            }
-
-            foreach ($locked->children()->get() as $child) {
-                // yang tadinya dipakai jadi tersedia, yang rusak / diperbaiki tetap statusnya
-                $kondisi = $child->status === 'dipakai' ? 'tersedia' : $child->status;
-
-                // parent_id tidak berubah, jadi hook link di model tidak ikut jalan
-                $child->update(['pemakai_saat_ini_id' => null, 'status' => $kondisi]);
-
-                $ditutup = PeminjamanItem::where('pemakai_id', $pemakai->id)
-                    ->where('inventory_id', $child->id)
-                    ->whereNull('dikembalikan_at')
-                    ->update(['dikembalikan_at' => now(), 'kondisi_kembali' => $kondisi]);
-
-                // kelengkapan dari sebelum riwayat item ada: catat sekarang supaya tetap muncul di struk
-                if ($ditutup === 0) {
-                    PeminjamanItem::create([
-                        'pemakai_id' => $pemakai->id,
-                        'inventory_id' => $child->id,
-                        'keterangan' => PeminjamanItem::KETERANGAN_IKUT,
-                        'dikembalikan_at' => now(),
-                        'kondisi_kembali' => $kondisi,
+                // kode pemakai harus cocok dengan yang tertera di struk serah terima (hanya diminta dari admin)
+                if ($this->isAdmin($request->user()) && strcasecmp(trim($data['nomor_penerimaan'] ?? ''), $pemakai->nomor_penerimaan) !== 0) {
+                    throw ValidationException::withMessages([
+                        'nomor_penerimaan' => 'Nomor penerimaan tidak cocok dengan pemakai barang ini.',
                     ]);
                 }
-            }
 
-            // barang utama: dipakai jadi tersedia, kalau rusak / diperbaiki tetap statusnya (sama seperti kelengkapan)
-            $kondisiUtama = $locked->status === 'dipakai' ? 'tersedia' : $locked->status;
-            $locked->update(['pemakai_saat_ini_id' => null, 'status' => $kondisiUtama]);
+                if ($data['tanggal_pengembalian'] < $pemakai->tanggal_penerimaan->format('Y-m-d')) {
+                    throw ValidationException::withMessages([
+                        'tanggal_pengembalian' => 'Tanggal pengembalian tidak boleh sebelum tanggal penerimaan.',
+                    ]);
+                }
 
-            $pemakai->update([
-                'tanggal_pengembalian' => $data['tanggal_pengembalian'],
-                'waktu_pengembalian' => now(),
-                'kondisi_kembali' => $kondisiUtama,
-                'catatan_kembali' => $data['catatan'] ?? null,
-                'dikembalikan_oleh' => $request->user()->id,
-            ]);
+                foreach ($locked->children()->get() as $child) {
+                    // yang tadinya dipakai jadi tersedia, yang rusak / diperbaiki tetap statusnya
+                    $kondisi = $child->status === 'dipakai' ? 'tersedia' : $child->status;
 
-            return $pemakai;
-        });
+                    // parent_id tidak berubah, jadi hook link di model tidak ikut jalan
+                    $child->update(['pemakai_saat_ini_id' => null, 'status' => $kondisi]);
+
+                    $ditutup = PeminjamanItem::where('pemakai_id', $pemakai->id)
+                        ->where('inventory_id', $child->id)
+                        ->whereNull('dikembalikan_at')
+                        ->update(['dikembalikan_at' => now(), 'kondisi_kembali' => $kondisi]);
+
+                    // kelengkapan dari sebelum riwayat item ada: catat sekarang supaya tetap muncul di struk
+                    if ($ditutup === 0) {
+                        PeminjamanItem::create([
+                            'pemakai_id' => $pemakai->id,
+                            'inventory_id' => $child->id,
+                            'keterangan' => PeminjamanItem::KETERANGAN_IKUT,
+                            'dikembalikan_at' => now(),
+                            'kondisi_kembali' => $kondisi,
+                        ]);
+                    }
+                }
+
+                // barang utama: dipakai jadi tersedia, kalau rusak / diperbaiki tetap statusnya (sama seperti kelengkapan)
+                $kondisiUtama = $locked->status === 'dipakai' ? 'tersedia' : $locked->status;
+                $locked->update(['pemakai_saat_ini_id' => null, 'status' => $kondisiUtama]);
+
+                // foto bukti kondisi barang; disimpan setelah semua pengecekan lolos
+                foreach ($request->file('foto') as $file) {
+                    $paths[] = $file->store('pemakai-kembali', 'public');
+                }
+
+                $pemakai->update([
+                    'tanggal_pengembalian' => $data['tanggal_pengembalian'],
+                    'waktu_pengembalian' => now(),
+                    'kondisi_kembali' => $kondisiUtama,
+                    'catatan_kembali' => $data['catatan'] ?? null,
+                    'foto_kembali' => $paths,
+                    'dikembalikan_oleh' => $request->user()->id,
+                ]);
+
+                return $pemakai;
+            });
+        } catch (Throwable $e) {
+            // transaksi gagal: buang foto yang sempat tersimpan
+            Storage::disk('public')->delete($paths);
+            throw $e;
+        }
 
         return response()->json($this->pengembalianPayload($pemakai->fresh()));
     }

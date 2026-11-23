@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import type { KaryawanOption, KembalikanPayload, PengembalianReceipt, RiwayatRow, SerahTerimaReceipt } from '../types/peminjaman';
+import type { KaryawanOption, PengembalianReceipt, RiwayatRow, SerahTerimaReceipt } from '../types/peminjaman';
 
 export const peminjamanService = {
   // GET /pemakai/karyawan (karyawan aktif, untuk "Cari Karyawan Pemakai")
@@ -20,9 +20,9 @@ export const peminjamanService = {
     return data;
   },
 
-  // POST /inventory/{id}/kembalikan (butuh nomor penerimaan; balasannya data struk pengembalian)
-  async kembalikan(inventoryId: number, payload: KembalikanPayload): Promise<PengembalianReceipt> {
-    const { data } = await api.post<PengembalianReceipt>(`/inventory/${inventoryId}/kembalikan`, payload);
+  // POST /inventory/{id}/kembalikan (multipart karena ada 3 foto; butuh nomor penerimaan; balasannya data struk pengembalian)
+  async kembalikan(inventoryId: number, form: FormData): Promise<PengembalianReceipt> {
+    const { data } = await api.post<PengembalianReceipt>(`/inventory/${inventoryId}/kembalikan`, form);
     return data;
   },
 

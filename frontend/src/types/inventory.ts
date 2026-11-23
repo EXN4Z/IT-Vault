@@ -79,4 +79,6 @@ export interface InventoryLinkCandidate {
   type: string | null;
   children_count: number;
   status: InventoryRow['status'];
+  kategori: Option | null;
+  pemakai_saat_ini: { id: number; name: string } | null;
 }

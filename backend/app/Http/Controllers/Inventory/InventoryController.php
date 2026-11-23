@@ -116,11 +116,14 @@ class InventoryController extends Controller
                     ->orWhereRaw('LOWER(type) LIKE ?', [$like])
                     ->orWhereRaw("LOWER(CONCAT_WS(' ', merk, type)) LIKE ?", [$like])
                     ->orWhereRaw('LOWER(serial_number) LIKE ?', [$like])
+                    ->orWhereHas('kategori', fn ($k) => $k->whereRaw('LOWER(nama) LIKE ?', [$like]))
+                    ->orWhereHas('pemakaiSaatIni', fn ($p) => $p->whereRaw('LOWER(name) LIKE ?', [$like]))
                 );
             })
+            ->with(['kategori:id,nama', 'pemakaiSaatIni:id,name'])
             ->withCount('children')
             ->orderBy('kode_inventory')
-            ->get(['id', 'kode_inventory', 'nama', 'merk', 'type']);
+            ->get(['id', 'kode_inventory', 'nama', 'merk', 'type', 'status', 'kategori_id', 'pemakai_saat_ini_id']);
 
         return response()->json($data);
     }

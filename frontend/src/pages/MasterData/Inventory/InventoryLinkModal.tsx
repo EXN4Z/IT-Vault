@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import Modal from '../../../components/modal/Modal';
 import SearchField from '../../../components/ui/SearchField';
+import Badge from '../../../components/ui/Badge';
 import { btnOutline, btnSolid } from '../../../components/ui/buttonStyles';
 import { inventoryService } from '../../../services/inventoryService';
 import { getErrorMessage } from '../../../lib/errors';
+import { INVENTORY_STATUSES } from '../../../types/inventory';
 import type { InventoryLinkCandidate, InventoryRow } from '../../../types/inventory';
 
 interface InventoryLinkModalProps {
@@ -104,7 +106,7 @@ export default function InventoryLinkModal({ open, inventory, onClose, onDone }:
         </p>
       ) : (
         <div className="space-y-3">
-          <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, merk, type, atau serial number..." />
+          <SearchField value={query} onChange={setQuery} placeholder="Cari kode, nama, kategori, merk, type, serial number, atau pemakai..." />
 
           <div className="max-h-[320px] divide-y divide-line/60 overflow-y-auto rounded-lg border border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {loading ? (
@@ -115,6 +117,7 @@ export default function InventoryLinkModal({ open, inventory, onClose, onDone }:
             items.map((p) => {
                 const selected = p.id === selectedId;
                 const rusakBerat = p.status === 'rusak_berat';
+                const st = INVENTORY_STATUSES.find((x) => x.key === p.status);
                 return (
                   <button
                     key={p.id}
@@ -132,7 +135,8 @@ export default function InventoryLinkModal({ open, inventory, onClose, onDone }:
                         {p.kode_inventory}{p.nama ? ` - ${p.nama}` : ''}
                       </span>
                       <span className={`block truncate text-[11px] text-ink-muted ${rusakBerat ? 'opacity-60' : ''}`}>
-                        {[p.merk, p.type].filter(Boolean).join(' ') || '-'}
+                        {[p.kategori?.nama, [p.merk, p.type].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || '-'}
+                        {p.pemakai_saat_ini ? ` · ${p.pemakai_saat_ini.name}` : ''}
                       </span>
                       {rusakBerat && (
                         <span className="block truncate text-[11px] font-medium text-danger">
@@ -143,6 +147,9 @@ export default function InventoryLinkModal({ open, inventory, onClose, onDone }:
                     {p.children_count > 0 && (
                       <span className="shrink-0 text-[11px] text-ink-muted">{p.children_count} kelengkapan</span>
                     )}
+                    <span className="shrink-0">
+                      <Badge dot={st?.dot ?? 'bg-ink-muted'}>{st?.label ?? p.status}</Badge>
+                    </span>
                     {selected && <Check size={14} className="shrink-0 text-accent" />}
                   </button>
                 );
