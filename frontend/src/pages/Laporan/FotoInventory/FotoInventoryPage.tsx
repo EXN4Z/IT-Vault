@@ -4,6 +4,8 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   ImageOff,
   Images,
@@ -20,6 +22,11 @@ import Modal from '../../../components/modal/Modal';
 import ImageZoomModal from '../../../components/modal/ImageZoomModal';
 import { getLaporanFotoInventory } from '../../../services/laporanService';
 import type { JenisFotoLaporan, LaporanFotoItem } from '../../../types/laporan';
+import { tglJamSama } from '../../../lib/waktu';
+
+// '24 Nov 2026, 14:05' (jam hanya tampil kalau memang jam di tanggal itu, bukan jam pencatatan data yang diisi mundur)
+const tglJamItem = (item: Pick<LaporanFotoItem, 'tanggal' | 'waktu'>) =>
+  item.tanggal ? tglJamSama(item.tanggal, item.waktu) : '-';
 
 const FILTER_TABS = [
   { key: 'semua', label: 'Semua', icon: Images },
@@ -153,6 +160,7 @@ export default function FotoInventoryPage() {
   const paginatedItems = items.slice((safePage - 1) * perPage, safePage * perPage);
   const activeTabLabel = FILTER_TABS.find((t) => t.key === jenis)?.label ?? 'Semua';
   const activeSrc = selected?.foto_urls?.[activePhotoIdx];
+  const photoCount = selected?.foto_urls?.length ?? 0;
 
   return (
     <div className="space-y-4">
@@ -265,7 +273,7 @@ export default function FotoInventoryPage() {
                         <User size={12} /> {item.pelaku}
                       </span>
                       <span className="flex shrink-0 items-center gap-1">
-                        <Calendar size={12} /> {item.tanggal ?? '-'}
+                        <Calendar size={12} /> {tglJamItem(item)}
                       </span>
                     </div>
                   </div>
@@ -314,82 +322,127 @@ export default function FotoInventoryPage() {
           setZoomOpen(false);
           setSelected(null);
         }}
-        title={selected ? `${selected.jenis_label} — ${selected.referensi}` : ''}
+        size="lg"
+        eyebrow={selected?.jenis_label}
+        title={selected ? selected.referensi : ''}
       >
         {selected && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Gambar Utama */}
             <div
               onClick={() => {
                 if (activePhotoValid) setZoomOpen(true);
               }}
-              className={`group relative overflow-hidden rounded-xl border border-line bg-hover ${
-                activePhotoValid ? 'cursor-zoom-in' : 'min-h-48'
+              className={`group relative flex h-[42vh] min-h-56 items-center justify-center overflow-hidden rounded-xl border border-line bg-hover ${
+                activePhotoValid ? 'cursor-zoom-in' : ''
               }`}
             >
-              <div className="flex min-h-48 items-center justify-center">
-                <SafeImage
-                  src={activeSrc}
-                  alt={`Foto ${activePhotoIdx + 1}`}
-                  className="max-h-[60vh] w-full object-contain"
-                  onStatusChange={setActivePhotoValid}
-                />
-              </div>
+              <SafeImage
+                src={activeSrc}
+                alt={`Foto ${activePhotoIdx + 1}`}
+                className="max-h-full max-w-full object-contain"
+                onStatusChange={setActivePhotoValid}
+              />
+
+              {/* penanda urutan foto */}
+              {photoCount > 1 && (
+                <span className="absolute left-2.5 top-2.5 rounded-md bg-zinc-900/80 px-2 py-0.5 text-[11px] font-medium text-white">
+                  {activePhotoIdx + 1} / {photoCount}
+                </span>
+              )}
+
+              {/* panah foto sebelumnya / berikutnya */}
+              {photoCount > 1 && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Foto sebelumnya"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActivePhotoIdx((i) => (i - 1 + photoCount) % photoCount);
+                    }}
+                    className="absolute left-2.5 top-1/2 grid size-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-zinc-900/70 text-white opacity-0 transition hover:bg-zinc-900 focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Foto berikutnya"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActivePhotoIdx((i) => (i + 1) % photoCount);
+                    }}
+                    className="absolute right-2.5 top-1/2 grid size-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-zinc-900/70 text-white opacity-0 transition hover:bg-zinc-900 focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </>
+              )}
+
               {activePhotoValid && (
-                <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-lg bg-zinc-900/85 px-2.5 py-1 text-[11px] font-medium text-white opacity-90 shadow transition group-hover:opacity-100">
+                <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-lg bg-zinc-900/80 px-2.5 py-1 text-[11px] font-medium text-white opacity-90 transition group-hover:opacity-100">
                   <ZoomIn size={13} /> Perbesar
                 </span>
               )}
             </div>
 
             {/* Thumbnail Selector jika foto > 1 */}
-            {(selected.foto_urls?.length ?? 0) > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
+            {photoCount > 1 && (
+              <div className="-mx-1.5 flex gap-2 overflow-x-auto p-1.5">
                 {selected.foto_urls.map((url, idx) => (
                   <button
                     key={`${url}-${idx}`}
                     type="button"
                     onClick={() => setActivePhotoIdx(idx)}
-                    className={`size-16 shrink-0 cursor-pointer overflow-hidden rounded-lg border-2 bg-hover transition ${
-                      activePhotoIdx === idx ? 'border-ink' : 'border-transparent opacity-60 hover:opacity-100'
+                    className={`size-14 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-hover ring-2 ring-offset-2 ring-offset-surface transition ${
+                      activePhotoIdx === idx ? 'ring-ink' : 'opacity-60 ring-transparent hover:opacity-100'
                     }`}
                   >
-                    <SafeImage
-                      src={url}
-                      alt={`Thumb ${idx + 1}`}
-                      className="h-full w-full object-cover"
-                      compact
-                    />
+                    <SafeImage src={url} alt={`Thumb ${idx + 1}`} className="h-full w-full object-cover" compact />
                   </button>
                 ))}
               </div>
             )}
 
             {/* Metadata Transaksi */}
-            <div className="grid grid-cols-2 gap-3 rounded-xl border border-line p-3 text-xs">
-              <div>
-                <p className="text-ink-muted">Inventory</p>
-                <p className="mt-0.5 flex items-center gap-1 font-semibold text-ink">
-                  <Package size={13} />
-                  {selected.inventory
-                    ? `${selected.inventory.kode_inventory} - ${selected.inventory.nama}`
-                    : '-'}
-                </p>
+            <div className="divide-y divide-line rounded-xl border border-line text-xs">
+              {/* barang */}
+              <div className="flex items-center gap-3 p-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-hover text-ink-muted">
+                  <Package size={16} />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-mono text-[11px] text-ink-muted">{selected.inventory?.kode_inventory ?? '-'}</p>
+                  <p className="truncate text-sm font-semibold text-ink">{selected.inventory?.nama ?? '-'}</p>
+                </div>
+                <span className={`ml-auto shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium ${BADGE_STYLE[selected.jenis]}`}>
+                  {selected.jenis_label}
+                </span>
               </div>
-              <div>
-                <p className="text-ink-muted">Tanggal</p>
-                <p className="mt-0.5 font-semibold text-ink">{selected.tanggal ?? '-'}</p>
+
+              {/* waktu + pelaku */}
+              <div className="grid grid-cols-2 divide-x divide-line">
+                <div className="p-3">
+                  <p className="flex items-center gap-1 text-ink-muted">
+                    <Calendar size={12} /> Tanggal &amp; Jam
+                  </p>
+                  <p className="mt-1 font-semibold text-ink">{tglJamItem(selected)}</p>
+                </div>
+                <div className="p-3">
+                  <p className="flex items-center gap-1 text-ink-muted">
+                    <User size={12} /> {selected.jenis === 'rusak' ? 'Dilaporkan Oleh' : 'Pemakai'}
+                  </p>
+                  <p className="mt-1 font-semibold text-ink">{selected.pelaku}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-ink-muted">
-                  {selected.jenis === 'rusak' ? 'Dilaporkan Oleh' : 'Pemakai'}
-                </p>
-                <p className="mt-0.5 font-semibold text-ink">{selected.pelaku}</p>
-              </div>
-              <div>
-                <p className="text-ink-muted">Keterangan / Keluhan</p>
-                <p className="mt-0.5 font-medium text-ink">{selected.keterangan || '-'}</p>
-              </div>
+
+              {/* catatan / keluhan (hanya kalau ada) */}
+              {selected.keterangan && (
+                <div className="p-3">
+                  <p className="text-ink-muted">{selected.jenis === 'rusak' ? 'Keluhan' : 'Catatan'}</p>
+                  <p className="mt-1 text-ink">{selected.keterangan}</p>
+                </div>
+              )}
             </div>
           </div>
         )}

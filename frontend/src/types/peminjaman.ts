@@ -54,6 +54,8 @@ export interface PengembalianReceipt {
   nomor_penerimaan: string;
   tanggal_penerimaan: string;
   tanggal_pengembalian: string;
+  waktu_penerimaan: string | null; // ISO 8601, untuk menghitung lama dipakai
+  waktu_pengembalian: string | null;
   catatan: string | null;
   catatan_kembali: string | null;
   pemakai: { id: number; name: string };

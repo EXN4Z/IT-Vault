@@ -339,6 +339,8 @@ class PeminjamanController extends Controller
             'nomor_penerimaan' => $pemakai->nomor_penerimaan,
             'tanggal_penerimaan' => $pemakai->tanggal_penerimaan->format('Y-m-d'),
             'tanggal_pengembalian' => $pemakai->tanggal_pengembalian->format('Y-m-d'),
+            'waktu_penerimaan' => $pemakai->created_at?->toIso8601String(),
+            'waktu_pengembalian' => $pemakai->waktu_pengembalian?->toIso8601String(),
             'catatan' => $pemakai->catatan,
             'catatan_kembali' => $pemakai->catatan_kembali,
             'pemakai' => $pemakai->user->only(['id', 'name']),

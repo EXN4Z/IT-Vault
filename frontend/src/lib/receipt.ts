@@ -1,4 +1,4 @@
-import { KONDISI_KEMBALI, type PengembalianReceipt, type SerahTerimaReceipt, type StrukInventory } from '../types/peminjaman';
+import type { PengembalianReceipt, SerahTerimaReceipt, StrukInventory } from '../types/peminjaman';
 import { HASIL_PENANGANAN, type Penanganan } from '../types/penanganan';
 import { formatDurasi, formatTanggal, rupiah, tglJam } from './waktu';
 
@@ -12,17 +12,43 @@ function esc(value: string): string {
 
 // "IT-26-00096 — Flash Disk Robot RF116 16 GB Black"
 function inventoryLabel(i: StrukInventory): string {
-  const detail = [i.nama, i.merk, i.type, i.warna].filter(Boolean).join(' ');
+  // nama sering sudah memuat merk / type / warna, jadi hanya tambahkan bagian yang belum ada (cegah teks dobel)
+  const nama = i.nama ?? '';
+  const extra = [i.merk, i.type, i.warna].filter((v): v is string => !!v && !nama.toLowerCase().includes(v.toLowerCase()));
+  const detail = [nama, ...extra].filter(Boolean).join(' ');
   return detail ? `${i.kode_inventory} — ${detail}` : i.kode_inventory;
 }
 
-// 'menunggu_perbaikan' -> 'Menunggu Perbaikan'
-function kondisiLabel(key: string | null): string {
-  return KONDISI_KEMBALI.find((k) => k.key === key)?.label ?? key ?? '-';
+// 'YYYY-MM-DD' dari sebuah waktu (jam lokal browser)
+function tglLokal(waktu: string): string {
+  const d = new Date(waktu);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// lama dipakai, semua satuan ditulis lengkap: '2 hari 3 jam 5 menit 10 detik'
+// jam dipakai hanya kalau memang jam kejadian (tanggal bisa diisi mundur); kalau tidak, hitung selisih hari kalender
+function lamaDipakai(r: PengembalianReceipt): string {
+  const { waktu_penerimaan: a, waktu_pengembalian: b } = r;
+  if (a && b && tglLokal(a) === r.tanggal_penerimaan && tglLokal(b) === r.tanggal_pengembalian) {
+    const total = Math.max(0, Math.floor((new Date(b).getTime() - new Date(a).getTime()) / 1000));
+    const bagian = [
+      [Math.floor(total / 86_400), 'hari'],
+      [Math.floor((total % 86_400) / 3_600), 'jam'],
+      [Math.floor((total % 3_600) / 60), 'menit'],
+      [total % 60, 'detik'],
+    ].filter(([n]) => n !== 0).map(([n, u]) => `${n} ${u}`);
+    return bagian.length ? bagian.join(' ') : '0 detik';
+  }
+  const hari = Math.round((new Date(r.tanggal_pengembalian).getTime() - new Date(r.tanggal_penerimaan).getTime()) / 86_400_000);
+  return hari >= 1 ? `${hari} hari` : 'kurang dari 1 hari';
 }
 
 const row = (label: string, value: string) =>
   `<div class="row"><span class="label">${esc(label)}</span><span class="value">${esc(value)}</span></div>`;
+
+// baris barang: label (kalau ada) di atas, nama barang di bawahnya dalam satu baris penuh
+const itemRow = (label: string, value: string) =>
+  `<div class="item">${label ? `<div class="label">${esc(label)}</div>` : ''}<div class="ival">${esc(value)}</div></div>`;
 
 // Jendela struk harus dibuka LANGSUNG saat tombol diklik (sebelum await), kalau tidak diblokir popup blocker.
 // Panggil ini dulu, lalu isi lewat writeReceipt() / writePengembalianReceipt() setelah server membalas. null = popup diblokir.
@@ -45,7 +71,7 @@ function writePage(win: Window, o: { title: string; heading: string; nomor: stri
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; padding: 36px 16px; background: #fff; color: #111; font-family: 'Courier New', Courier, monospace; }
-  .card { width: 100%; max-width: 374px; margin: 0 auto; padding: 28px 22px 22px; border: 1px dashed #9db0c8; border-radius: 14px; }
+  .card { width: 100%; max-width: 420px; margin: 0 auto; padding: 28px 22px 22px; border: 1px dashed #9db0c8; border-radius: 14px; }
   .center { text-align: center; }
   .brand { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
   .title { margin-top: 10px; font-size: 13px; font-weight: 700; letter-spacing: .04em; }
@@ -53,6 +79,9 @@ function writePage(win: Window, o: { title: string; heading: string; nomor: stri
   .tanggal { margin-top: 12px; font-size: 11px; color: #8fa3c0; }
   .divider { margin: 16px 0 12px; border: 0; border-top: 1px dashed #b9c6d8; }
   .row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 8px; font-size: 11px; line-height: 1.35; }
+  .item { margin-bottom: 8px; font-size: 11px; line-height: 1.35; }
+  .item .label { margin-bottom: 2px; }
+  .ival { text-align: right; font-weight: 700; }
   .label { flex: none; color: #5b7aa3; }
   .value { text-align: right; font-weight: 700; }
   .foot { margin-top: 18px; font-size: 9.5px; color: #8fa3c0; }
@@ -81,8 +110,8 @@ function writePage(win: Window, o: { title: string; heading: string; nomor: stri
 // isi jendela dengan struk serah terima
 export function writeReceipt(win: Window, r: SerahTerimaReceipt): void {
   const rows = [
-    row('Inventory', inventoryLabel(r.inventory)),
-    ...r.kelengkapan.map((k, idx) => row(idx === 0 ? 'Kelengkapan' : '', inventoryLabel(k))),
+    itemRow('Inventory', inventoryLabel(r.inventory)),
+    ...r.kelengkapan.map((k, idx) => itemRow(idx === 0 ? 'Kelengkapan' : '', inventoryLabel(k))),
     row('Diserahkan Kepada', r.pemakai.name),
     row('Nomor Penerimaan', r.nomor_penerimaan),
     ...(r.catatan ? [row('Catatan', r.catatan)] : []),
@@ -97,17 +126,17 @@ export function writeReceipt(win: Window, r: SerahTerimaReceipt): void {
   });
 }
 
-// isi jendela dengan struk pengembalian (barang utama + kelengkapan, lengkap dengan kondisi tiap barang)
+// isi jendela dengan struk pengembalian (barang utama + kelengkapan)
 export function writePengembalianReceipt(win: Window, r: PengembalianReceipt): void {
-  const dengan = (i: StrukInventory & { kondisi_kembali: string | null }) =>
-    `${inventoryLabel(i)} [${kondisiLabel(i.kondisi_kembali)}]`;
+  const dengan = (i: StrukInventory) => inventoryLabel(i);
 
   const rows = [
-    row('Inventory', dengan(r.inventory)),
-    ...r.kelengkapan.map((k, idx) => row(idx === 0 ? 'Kelengkapan' : '', dengan(k))),
+    itemRow('Inventory', dengan(r.inventory)),
+    ...r.kelengkapan.map((k, idx) => itemRow(idx === 0 ? 'Kelengkapan' : '', dengan(k))),
     row('Dikembalikan Oleh', r.pemakai.name),
     row('Nomor Penerimaan', r.nomor_penerimaan),
     row('Tgl Serah Terima', formatTanggal(r.tanggal_penerimaan)),
+    row('Dipakai Selama', lamaDipakai(r)),
     ...(r.catatan_kembali ? [row('Catatan Kembali', r.catatan_kembali)] : []),
   ].join('');
 
@@ -129,7 +158,7 @@ export function writePenangananReceipt(win: Window, p: Penanganan): void {
   const nomor = p.no_struk ?? '-';
 
   const rows = [
-    row('Inventory', p.inventory ? inventoryLabel(p.inventory) : '-'),
+    itemRow('Inventory', p.inventory ? inventoryLabel(p.inventory) : '-'),
     row('Jenis Kerusakan', p.jenis_label),
     row('Keluhan', p.keluhan),
     row('Dilaporkan Oleh', p.pelapor ?? '-'),
