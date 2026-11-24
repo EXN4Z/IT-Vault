@@ -1,7 +1,7 @@
 // titik masuk aplikasi: semua provider global dipasang di sini
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
@@ -11,13 +11,13 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {/* tema (terang/gelap) */}
     <ThemeProvider>
-      {/* routing halaman */}
-      <BrowserRouter>
+      {/* routing halaman (HashRouter: refresh aman tanpa config server) */}
+      <HashRouter>
         {/* state login: user + token */}
         <AuthProvider>
           <App />
         </AuthProvider>
-      </BrowserRouter>
+      </HashRouter>
     </ThemeProvider>
   </StrictMode>,
 );
