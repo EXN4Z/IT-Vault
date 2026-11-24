@@ -112,7 +112,7 @@ class InventoryExport implements
     public function query(): EloquentBuilder
     {
         $q = Inventory::query()
-            ->with(['kategori', 'supplier', 'perusahaan', 'peminjam'])
+            ->with(['kategori', 'supplier', 'perusahaan', 'pemakaiSaatIni'])
             ->orderBy('id');
 
         $scope = $this->opsi['scope'];
