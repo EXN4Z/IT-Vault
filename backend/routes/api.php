@@ -61,7 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/perusahaan/export', [PerusahaanController::class, 'export']);
 
         // CRUD departemen: index, store, update, destroy
-        Route::apiResource('departemen', DepartemenController::class)->except('show');
+        Route::apiResource('departemen', DepartemenController::class)->except('show')->parameters(['departemen' => 'departemen']);;
         Route::post('/departemen/import', [DepartemenController::class, 'import']);
         Route::get('/departemen/export', [DepartemenController::class, 'export']);
 
