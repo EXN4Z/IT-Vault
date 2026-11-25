@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
+import { Download, Loader2, Map as MapIcon, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
 import DataTable, { type Column } from '../../../components/ui/DataTable';
 import SearchField from '../../../components/ui/SearchField';
 import Modal from '../../../components/modal/Modal';
@@ -20,6 +20,9 @@ const EXPORT_COLUMNS: ExportColumn[] = [
   { key: 'link', label: 'Link' },
   { key: 'telepon', label: 'Telepon' },
 ];
+
+// link hanya dijadikan tombol kalau benar-benar alamat http(s), supaya isi aneh (misal "javascript:...") tidak bisa diklik
+const isHttpUrl = (v: string | null): v is string => !!v && /^https?:\/\//i.test(v);
 
 const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink';
 
@@ -183,7 +186,21 @@ export default function PerusahaanPage() {
   const columns: Column<Perusahaan>[] = [
     { key: 'nama', header: 'Nama', width: 'minmax(0,1fr)', cell: (p) => <span className="truncate font-semibold">{p.nama}</span> },
     { key: 'alamat', header: 'Alamat', width: 'minmax(0,1.4fr)', cell: (p) => <span className="truncate">{p.alamat ?? '-'}</span> },
-    { key: 'link', header: 'Link', width: 'minmax(0,1fr)', cell: (p) => <span className="truncate">{p.link ?? '-'}</span> },
+    {
+      key: 'link', header: 'Lokasi', width: '150px',
+      cell: (p) => isHttpUrl(p.link) ? (
+        <a
+          href={p.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 font-semibold text-accent hover:underline"
+        >
+          <MapIcon size={14} />Lihat Lokasi
+        </a>
+      ) : (
+        <span className="truncate">{p.link ?? '-'}</span>
+      ),
+    },
     { key: 'telepon', header: 'Telepon', width: '130px', cell: (p) => <span className="truncate">{p.telepon ?? '-'}</span> },
     {
       key: 'aksi', header: 'Aksi', width: '80px', align: 'right',
