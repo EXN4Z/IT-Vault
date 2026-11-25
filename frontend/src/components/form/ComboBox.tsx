@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { createPortal } from 'react-dom';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { getPosition, type Position } from './floating';
+import Tooltip from '../ui/Tooltip';
 
 // satu pilihan: `value` yang disimpan (misal id), `label` yang ditampilkan
 export interface ComboboxOption {
@@ -167,7 +168,7 @@ export default function ComboBox({
         onKeyDown={onTriggerKeyDown}
         className={`flex ${compact ? 'h-8 gap-1 px-2' : 'h-10 gap-2 px-3'} w-full cursor-pointer items-center justify-between rounded-lg border border-line bg-field text-left text-xs outline-none transition focus:border-accent disabled:cursor-not-allowed disabled:opacity-60`}
       >
-        <span className={`truncate ${selected ? '' : 'text-ink-muted'}`}>{selected?.label ?? placeholder}</span>
+        <Tooltip onlyWhenTruncated className={`truncate ${selected ? '' : 'text-ink-muted'}`}>{selected?.label ?? placeholder}</Tooltip>
         <ChevronsUpDown size={compact ? 12 : 14} className="shrink-0 text-ink-muted" />
       </button>
 
@@ -217,7 +218,7 @@ export default function ComboBox({
                       o.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                     } ${i === active && !o.disabled ? 'bg-selected' : ''}`}
                   >
-                    <span className="truncate">{o.label}</span>
+                    <Tooltip onlyWhenTruncated className="truncate">{o.label}</Tooltip>
                     {o.disabled ? (
                       <span className="shrink-0 text-[11px] text-ink-muted">{o.disabled}</span>
                     ) : (

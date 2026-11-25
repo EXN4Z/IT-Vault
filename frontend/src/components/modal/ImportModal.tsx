@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { FileSpreadsheet, Info, Loader2, Trash2, Upload } from 'lucide-react';
 import Modal from './Modal';
 import { btnOutline, btnSolid } from '../ui/buttonStyles';
+import Tooltip from '../ui/Tooltip';
 
 // format file yang boleh diunggah dan batas ukurannya
 const ACCEPT = '.xlsx,.xls,.csv';
@@ -162,7 +163,9 @@ export default function ImportModal({
               <FileSpreadsheet size={18} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold">{file.name}</p>
+              <Tooltip className="block min-w-0" onlyWhenTruncated>
+                <p className="truncate text-xs font-semibold">{file.name}</p>
+              </Tooltip>
               <p className="mt-0.5 text-[11px] text-ink-muted">{formatSize(file.size)}</p>
             </div>
             <button

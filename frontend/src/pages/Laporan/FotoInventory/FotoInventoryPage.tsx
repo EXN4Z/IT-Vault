@@ -23,6 +23,7 @@ import ImageZoomModal from '../../../components/modal/ImageZoomModal';
 import { getLaporanFotoInventory } from '../../../services/laporanService';
 import type { JenisFotoLaporan, LaporanFotoItem } from '../../../types/laporan';
 import { tglJamSama } from '../../../lib/waktu';
+import Tooltip from '../../../components/ui/Tooltip';
 
 // '24 Nov 2026, 14:05' (jam hanya tampil kalau memang jam di tanggal itu, bukan jam pencatatan data yang diisi mundur)
 const tglJamItem = (item: Pick<LaporanFotoItem, 'tanggal' | 'waktu'>) =>
@@ -260,18 +261,22 @@ export default function FotoInventoryPage() {
                       <p className="font-mono text-[11px] text-ink-muted">
                         {item.inventory?.kode_inventory ?? '-'} • {item.referensi}
                       </p>
-                      <p className="line-clamp-1 text-sm font-semibold text-ink">
-                        {item.inventory?.nama ?? 'Barang tidak ditemukan'}
-                      </p>
+                      <Tooltip className="block min-w-0" onlyWhenTruncated>
+                        <p className="line-clamp-1 text-sm font-semibold text-ink">
+                          {item.inventory?.nama ?? 'Barang tidak ditemukan'}
+                        </p>
+                      </Tooltip>
                       {item.keterangan && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">{item.keterangan}</p>
+                        <Tooltip className="block min-w-0" onlyWhenTruncated>
+                          <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">{item.keterangan}</p>
+                        </Tooltip>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between border-t border-line pt-2 text-[11px] text-ink-muted">
-                      <span className="flex items-center gap-1 truncate">
+                      <Tooltip onlyWhenTruncated className="flex items-center gap-1 truncate">
                         <User size={12} /> {item.pelaku}
-                      </span>
+                      </Tooltip>
                       <span className="flex shrink-0 items-center gap-1">
                         <Calendar size={12} /> {tglJamItem(item)}
                       </span>
@@ -413,7 +418,9 @@ export default function FotoInventoryPage() {
                 </span>
                 <div className="min-w-0">
                   <p className="font-mono text-[11px] text-ink-muted">{selected.inventory?.kode_inventory ?? '-'}</p>
-                  <p className="truncate text-sm font-semibold text-ink">{selected.inventory?.nama ?? '-'}</p>
+                  <Tooltip className="block min-w-0" onlyWhenTruncated>
+                    <p className="truncate text-sm font-semibold text-ink">{selected.inventory?.nama ?? '-'}</p>
+                  </Tooltip>
                 </div>
                 <span className={`ml-auto shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium ${BADGE_STYLE[selected.jenis]}`}>
                   {selected.jenis_label}

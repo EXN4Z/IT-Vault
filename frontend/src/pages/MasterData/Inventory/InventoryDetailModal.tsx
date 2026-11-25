@@ -14,6 +14,7 @@ import { formatTanggal, openReceiptWindow, writePengembalianReceipt } from '../.
 import { INVENTORY_STATUSES, type InventoryKelengkapan, type InventoryRow } from '../../../types/inventory';
 import type { RiwayatRow } from '../../../types/peminjaman';
 import { HASIL_PENANGANAN, STATUS_PENANGANAN, type Penanganan } from '../../../types/penanganan';
+import Tooltip from '../../../components/ui/Tooltip';
 
 interface InventoryDetailModalProps {
   open: boolean;
@@ -55,7 +56,9 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-t border-line py-2.5 text-xs">
       <dt className="shrink-0 text-ink-soft">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-semibold text-ink">{children}</dd>
+      <dd className="min-w-0 text-right font-semibold text-ink">
+        <Tooltip className="block truncate" onlyWhenTruncated>{children}</Tooltip>
+      </dd>
     </div>
   );
 }
@@ -303,13 +306,15 @@ export default function InventoryDetailModal({ open, inventory, onClose, onHando
                     const st = INVENTORY_STATUSES.find((s) => s.key === k.status);
                     return (
                       <li key={k.id} className="flex items-center justify-between gap-3 border-t border-line py-2.5 text-xs">
-                        <p className="min-w-0 flex-1 truncate">
+                        <p className="min-w-0 flex-1">
+                          <Tooltip className="block truncate" onlyWhenTruncated>
                           <span className="font-semibold text-ink">{k.kode_inventory}</span>
                           <span className="text-ink-soft">
                             {' '}— {k.nama ?? '-'}
                             {[k.merk, k.type].filter(Boolean).length > 0 && ` · ${[k.merk, k.type].filter(Boolean).join(' ')}`}
                             {k.serial_number && ` · SN ${k.serial_number}`}
                           </span>
+                        </Tooltip>
                         </p>
                         <Badge dot={st?.dot ?? 'bg-ink-muted'}>{st?.label ?? k.status}</Badge>
                       </li>

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import Tooltip from '../ui/Tooltip';
 
 // lama animasi buka/tutup (ms), harus sama dengan `duration-200` di bawah
 const DURATION = 200;
@@ -112,7 +113,9 @@ export default function Modal({ open, onClose, title, description, eyebrow, titl
         <div className={`flex gap-3 border-b border-line px-5 py-4 ${titleExtra ? 'items-start' : 'items-center'}`}>
           <div className="min-w-0 flex-1">
             {eyebrow && <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{eyebrow}</p>}
-            <h2 id={titleId} className="truncate text-[15px] font-semibold">{title}</h2>
+            <Tooltip className="block min-w-0" onlyWhenTruncated>
+              <h2 id={titleId} className="truncate text-[15px] font-semibold">{title}</h2>
+            </Tooltip>
             {description && <p className="mt-0.5 text-xs text-ink-soft">{description}</p>}
             {titleExtra && <div className="mt-2">{titleExtra}</div>}
           </div>

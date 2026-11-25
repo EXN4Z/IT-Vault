@@ -17,6 +17,7 @@ import PenangananLaporModal from '../MasterData/Inventory/PenangananLaporModal';
 import NotificationPanel from './NotificationPanel';
 import { KartuSectionSkeleton, LaporanSectionSkeleton, NotifikasiSkeleton, RiwayatListSkeleton } from './UserDashboardSkeleton';
 import UserReturnModal from './UserReturnModal';
+import Tooltip from '../../components/ui/Tooltip';
 
 // tombol ikon kecil (sama dengan halaman Inventory)
 const iconBtn = 'cursor-pointer rounded-md p-1.5 text-ink-muted transition hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60';
@@ -63,7 +64,9 @@ function Spec({ name, value }: { name: string; value: string | null }) {
   return (
     <div className="min-w-0">
       <p className="text-[10px] text-ink-muted">{name}</p>
-      <p className="truncate text-xs font-medium">{value || '-'}</p>
+      <Tooltip className="block min-w-0" onlyWhenTruncated>
+        <p className="truncate text-xs font-medium">{value || '-'}</p>
+      </Tooltip>
     </div>
   );
 }
@@ -256,11 +259,15 @@ export default function UserDashboardPage() {
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{item.nama || item.merk || item.kode_inventory}</p>
-                          <p className="truncate text-xs text-ink-muted">
-                            {item.kode_inventory}
-                            {item.kategori ? ` · ${item.kategori}` : ''}
-                          </p>
+                          <Tooltip className="block min-w-0" onlyWhenTruncated>
+                            <p className="truncate text-sm font-semibold">{item.nama || item.merk || item.kode_inventory}</p>
+                          </Tooltip>
+                          <Tooltip className="block min-w-0" onlyWhenTruncated>
+                            <p className="truncate text-xs text-ink-muted">
+                              {item.kode_inventory}
+                              {item.kategori ? ` · ${item.kategori}` : ''}
+                            </p>
+                          </Tooltip>
                         </div>
                         <StatusBadge status={item.status} />
                       </header>
@@ -293,7 +300,9 @@ export default function UserDashboardPage() {
                             {item.kelengkapan.map((k) => (
                               <li key={k.id} className="flex items-center gap-2 py-1.5">
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-medium">{k.nama || k.merk || k.kode_inventory}</p>
+                                  <Tooltip className="block min-w-0" onlyWhenTruncated>
+                                    <p className="truncate text-xs font-medium">{k.nama || k.merk || k.kode_inventory}</p>
+                                  </Tooltip>
                                   <p className="truncate text-[11px] text-ink-muted">{k.kode_inventory}</p>
                                 </div>
                                 <StatusBadge status={k.status} />
@@ -313,13 +322,13 @@ export default function UserDashboardPage() {
                       {/* aksi (flex-wrap: tombol turun ke baris baru kalau layar sempit); footer selalu ada supaya kartu tetap terbungkus rapi */}
                       <footer className="flex min-h-[57px] flex-wrap items-center gap-2 border-t border-line p-3">
                         {item.bisa_dikembalikan && (
-                          <button type="button" className={btnSolid} onClick={() => openReturn(item)}>
+                          <button type="button" className={`${btnSolid} flex-1 justify-center`} onClick={() => openReturn(item)}>
                             <Undo2 size={14} />
                             Kembalikan
                           </button>
                         )}
                         {item.bisa_dilapor && (
-                          <button type="button" className={btnOutline} onClick={() => openReport(item)}>
+                          <button type="button" className={`${btnOutline} flex-1 justify-center whitespace-nowrap`} onClick={() => openReport(item)}>
                             <Wrench size={14} />
                             Lapor kerusakan
                           </button>
@@ -329,7 +338,7 @@ export default function UserDashboardPage() {
                           type="button"
                           title="Buka struk bukti peminjaman"
                           aria-label={`Buka struk peminjaman ${item.kode_inventory}`}
-                          className={`${btnOutline} ml-auto`}
+                          className={`${btnOutline} w-full justify-center`}
                           disabled={printing === item.id}
                           onClick={() => printStruk(item)}
                         >
@@ -437,13 +446,17 @@ export default function UserDashboardPage() {
                         </Badge>
                       </span>
                     </div>
-                    <p className="line-clamp-2 text-[11px] text-ink-soft">{r.keluhan}</p>
+                    <Tooltip className="block min-w-0" onlyWhenTruncated>
+                      <p className="line-clamp-2 text-[11px] text-ink-soft">{r.keluhan}</p>
+                    </Tooltip>
                     <p className="text-[11px] text-ink-muted">
                       Dilapor {tglJamSama(r.tanggal_lapor, r.lapor_at)}
                       {r.tanggal_selesai && <> · selesai {tglJam(r.tanggal_selesai, r.selesai_at)}</>}
                     </p>
                     {r.hasil === 'tidak_bisa_diperbaiki' && r.catatan && (
-                      <p className="line-clamp-2 text-[11px] text-ink-muted">Alasan: {r.catatan}</p>
+                      <Tooltip className="block min-w-0" onlyWhenTruncated>
+                        <p className="line-clamp-2 text-[11px] text-ink-muted">Alasan: {r.catatan}</p>
+                      </Tooltip>
                     )}
                   </li>
                 ))}

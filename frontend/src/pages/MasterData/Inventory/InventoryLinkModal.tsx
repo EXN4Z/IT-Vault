@@ -8,6 +8,7 @@ import { inventoryService } from '../../../services/inventoryService';
 import { getErrorMessage } from '../../../lib/errors';
 import { INVENTORY_STATUSES } from '../../../types/inventory';
 import type { InventoryLinkCandidate, InventoryRow } from '../../../types/inventory';
+import Tooltip from '../../../components/ui/Tooltip';
 
 interface InventoryLinkModalProps {
   open: boolean;
@@ -131,13 +132,13 @@ export default function InventoryLinkModal({ open, inventory, onClose, onDone }:
                     } ${saving ? 'opacity-60' : ''} ${selected ? 'bg-hover' : ''}`}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className={`block truncate text-xs font-semibold ${rusakBerat ? 'opacity-60' : ''}`}>
+                      <Tooltip onlyWhenTruncated className={`block truncate text-xs font-semibold ${rusakBerat ? 'opacity-60' : ''}`}>
                         {p.kode_inventory}{p.nama ? ` - ${p.nama}` : ''}
-                      </span>
-                      <span className={`block truncate text-[11px] text-ink-muted ${rusakBerat ? 'opacity-60' : ''}`}>
+                      </Tooltip>
+                      <Tooltip onlyWhenTruncated className={`block truncate text-[11px] text-ink-muted ${rusakBerat ? 'opacity-60' : ''}`}>
                         {[p.kategori?.nama, [p.merk, p.type].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || '-'}
                         {p.pemakai_saat_ini ? ` · ${p.pemakai_saat_ini.name}` : ''}
-                      </span>
+                      </Tooltip>
                       {rusakBerat && (
                         <span className="block truncate text-[11px] font-medium text-danger">
                           Rusak berat, tidak bisa dijadikan barang utama

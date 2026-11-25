@@ -11,6 +11,7 @@ import { INVENTORY_STATUSES, type InventoryRow, type InventoryStatus } from '../
 import type { Penanganan } from '../../types/penanganan';
 import { AngkaBone, ChartHeaderSkeleton, ChartSkeleton, MenungguRowsSkeleton, NotifikasiSkeleton, TerbaruSkeleton } from './AdminDashboardSkeleton';
 import NotificationPanel from './NotificationPanel';
+import Tooltip from '../../components/ui/Tooltip';
 
 const BATAS_HARI = 7; // sama dengan halaman Penanganan: laporan belum diterima lebih dari ini = terlambat
 
@@ -419,11 +420,15 @@ export default function AdminDashboardPage() {
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{item.nama || item.merk || item.kode_inventory}</p>
-                    <p className="truncate text-xs text-ink-muted">
-                      {item.kode_inventory}
-                      {item.kategori ? ` · ${item.kategori.nama}` : ''}
-                    </p>
+                    <Tooltip className="block min-w-0" onlyWhenTruncated>
+                      <p className="truncate text-sm font-medium">{item.nama || item.merk || item.kode_inventory}</p>
+                    </Tooltip>
+                    <Tooltip className="block min-w-0" onlyWhenTruncated>
+                      <p className="truncate text-xs text-ink-muted">
+                        {item.kode_inventory}
+                        {item.kategori ? ` · ${item.kategori.nama}` : ''}
+                      </p>
+                    </Tooltip>
                   </div>
                   {st && (
                     <span className="shrink-0">

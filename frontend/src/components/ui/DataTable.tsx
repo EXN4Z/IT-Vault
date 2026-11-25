@@ -1,6 +1,7 @@
 import { useRef, useLayoutEffect, type ReactNode, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import ComboBox from '../form/ComboBox';
+import Tooltip from './Tooltip';
 
 // =============================================================================
 // 1. TIPE DATA & KONSTANTA
@@ -303,7 +304,11 @@ export default function DataTable<T>({
                   style={{ gridTemplateColumns: template }}
                 >
                   {columns.map((c) => (
-                    <div key={c.key} className={`${cell(c)} ${c.align ? '' : 'truncate'}`}>{c.cell(row)}</div>
+                    c.align ? (
+                      <div key={c.key} className={cell(c)}>{c.cell(row)}</div>
+                    ) : (
+                      <Tooltip key={c.key} className={`${cell(c)} truncate`} onlyWhenTruncated>{c.cell(row)}</Tooltip>
+                    )
                   ))}
                 </div>
               ))

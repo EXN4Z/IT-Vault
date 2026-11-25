@@ -236,7 +236,7 @@ export default function PenangananPage() {
   const kodeCol: Column<Penanganan> = { key: 'kode', header: 'Kode', width: '105px', cell: (p) => <span className="truncate font-semibold">{p.inventory?.kode_inventory ?? '-'}</span> };
   const namaCol: Column<Penanganan> = { key: 'nama', header: 'Nama Barang', width: 'minmax(100px,1fr)', cell: (p) => <span className="truncate font-semibold">{p.inventory?.nama ?? '-'}</span> };
   const jenisCol: Column<Penanganan> = { key: 'jenis', header: 'Jenis', width: '115px', cell: (p) => <span className="truncate">{p.jenis_label}</span> };
-  const keluhanCol: Column<Penanganan> = { key: 'keluhan', header: 'Keluhan', width: 'minmax(100px,1.4fr)', cell: (p) => <span className="truncate text-ink-soft" title={p.keluhan}>{p.keluhan}</span> };
+  const keluhanCol: Column<Penanganan> = { key: 'keluhan', header: 'Keluhan', width: 'minmax(100px,1.4fr)', cell: (p) => <span className="truncate text-ink-soft">{p.keluhan}</span> };
   const pelaporCol: Column<Penanganan> = { key: 'pelapor', header: 'Pelapor', width: 'minmax(70px,0.8fr)', cell: (p) => <span className="truncate">{p.pelapor ?? '-'}</span> };
   const laporCol: Column<Penanganan> = { key: 'tanggal', header: 'Dilaporkan', width: '135px', cell: (p) => <span className="truncate">{tglJam(p.tanggal_lapor, p.lapor_at)}</span> };
   const menungguCol: Column<Penanganan> = {
@@ -253,7 +253,7 @@ export default function PenangananPage() {
     cell: (p) => (p.diterima_at && p.selesai_at ? <span>{formatDurasi(p.diterima_at, p.selesai_at)}</span> : <span className="text-ink-muted">-</span>),
   };
   const biayaCol: Column<Penanganan> = { key: 'biaya', header: 'Total Biaya', width: '105px', align: 'right', cell: (p) => <span className="truncate font-semibold">{rupiah(totalBiaya(p))}</span> };
-  const catatanCol: Column<Penanganan> = { key: 'catatan', header: 'Alasan', width: 'minmax(100px,1.4fr)', cell: (p) => <span className="truncate text-ink-soft" title={p.catatan ?? ''}>{p.catatan ?? '-'}</span> };
+  const catatanCol: Column<Penanganan> = { key: 'catatan', header: 'Alasan', width: 'minmax(100px,1.4fr)', cell: (p) => <span className="truncate text-ink-soft">{p.catatan ?? '-'}</span> };
   const aksiCol: Column<Penanganan> = {
     key: 'aksi', header: 'Aksi', width: '90px', align: 'right',
     cell: (p) => (
